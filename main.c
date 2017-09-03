@@ -79,7 +79,7 @@ int main()
         printf("%d\n", energy);
     }
 
-    population_size = 1500;
+   population_size = 1500;
 
     printf("s4:\n");
     for (i = 0; i < 20; ++i)

@@ -54,29 +54,26 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
 {
     //Declarations
     int i, j, k, **lattice,
-        ant_energy, best_energy, pull_energy, iteration_energy,
-        *ant_energy_by_link, *best_energy_by_link, *best_pull_energy_by_link, *pull_energy_by_link, *iteration_energy_by_link;
+        *ants_energy, best_energy, iteration_energy,
+        **ants_energy_by_link, *best_energy_by_link, *best_pull_energy_by_link, *pull_energy_by_link, *iteration_energy_by_link;
 
-    Coord *ant_positions, *best_positions, *best_pull_positions, *pull_positions, *iteration_positions;
-    Direction *ant_conform, *best_conform, *best_pull_conform, *pull_conform, *iteration_conform;
+    Coord **ants_positions, *best_positions, *best_pull_positions, *pull_positions, *iteration_positions;
+    Direction **ants_conform, *best_conform, *best_pull_conform, *pull_conform, *iteration_conform;
     Pull_move_config *possible_configs;
 
     float **pheromone;
 
     //Allocations
-    ant_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     best_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     best_pull_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     pull_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     iteration_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
 
-    ant_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     best_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     best_pull_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     pull_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     iteration_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
 
-    ant_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     best_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     best_pull_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     pull_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
@@ -84,6 +81,18 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
 
     possible_configs = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 *
                        (seq_len - 2));
+
+    ants_energy = (int*) malloc(sizeof(int) * population_size);
+    ants_energy_by_link = (int**) memory_allocation(sizeof(int*) * population_size);
+    ants_positions = (Coord**) memory_allocation(sizeof(Coord*) * population_size);
+    ants_conform = (Direction**) memory_allocation(sizeof(Direction*) * population_size);
+
+    for (i = 0; i < population_size; ++i)
+    {
+        ants_positions[i] = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
+        ants_energy_by_link[i] = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
+        ants_conform[i] = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
+    }
 
     pheromone = (float**) memory_allocation(sizeof(float*) * seq_len);
     for (i = 0; i < seq_len; ++i)
@@ -115,54 +124,54 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
         for (j = 0; j < population_size; ++j)
         {
 
-            ant_energy = construct_conform(seq, ant_conform, ant_energy_by_link, ant_positions,
+            ants_energy[j] = construct_conform(seq, ants_conform[j], ants_energy_by_link[j], ants_positions[j],
                                            alpha, beta, seq_len, pheromone, lattice,
                                            iteration_conform, iteration_energy_by_link, iteration_positions,
                                            iteration_energy);
 
-            ant_energy = calculate_best_pull_move(ant_conform, ant_positions, ant_energy_by_link,
-                                                  seq_len, ant_energy, lattice, seq, best_pull_conform,
+            ants_energy[j] = calculate_best_pull_move(ants_conform[j], ants_positions[j], ants_energy_by_link[j],
+                                                  seq_len, ants_energy[j], lattice, seq, best_pull_conform,
                                                   best_pull_positions, best_pull_energy_by_link,
                                                   pull_conform, pull_positions,
                                                   pull_energy_by_link, possible_configs);
 
-            if (ant_energy < iteration_energy)
+            if (ants_energy[j] < iteration_energy)
             {
                 for (k = 0; k < seq_len; ++k)
                 {
-                    iteration_energy = ant_energy;
-                    iteration_positions[k] = ant_positions[k];
+                    iteration_energy = ants_energy[j];
+                    iteration_positions[k] = ants_positions[j][k];
                     if (k < seq_len - 1)
                     {
-                        iteration_conform[k] = ant_conform[k];
-                        iteration_energy_by_link[k] = ant_energy_by_link[k];
+                        iteration_conform[k] = ants_conform[j][k];
+                        iteration_energy_by_link[k] = ants_energy_by_link[j][k];
                     }
 
                 }
             }
-
-            update_pheromone(pheromone, ant_conform, ant_energy, seq_len, evaporation_rate,
-                             stop_criterion);
 
             if (best_energy <= stop_criterion)
             {
                 break;
             }
         }
-
         if (iteration_energy < best_energy)
         {
             best_energy = iteration_energy;
-            for (k = 0; k < seq_len; ++k)
+            for (j = 0; j < seq_len; ++j)
             {
-                best_positions[k] = iteration_positions[k];
+                best_positions[j] = iteration_positions[j];
                 if (k < seq_len - 1)
                 {
-                    best_conform[k] = iteration_conform[k];
-                    best_energy_by_link[k] = iteration_energy_by_link[k];
+                    best_conform[j] = iteration_conform[j];
+                    best_energy_by_link[j] = iteration_energy_by_link[j];
                 }
 
             }
+        }
+        for (j = 0; j < population_size; ++j) {
+            update_pheromone(pheromone, ants_conform[j], ants_energy[j], seq_len, evaporation_rate,
+                             stop_criterion);
         }
 
         if (best_energy <= stop_criterion)
@@ -217,19 +226,19 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
     fclose(f);
 
     //Free memory
-    free(ant_conform);
+    free(ants_conform);
     free(best_conform);
     free(best_pull_conform);
     free(pull_conform);
     free(iteration_conform);
 
-    free(ant_energy_by_link);
+    free(ants_energy_by_link);
     free(best_energy_by_link);
     free(best_pull_energy_by_link);
     free(pull_energy_by_link);
     free(iteration_energy_by_link);
 
-    free(ant_positions);
+    free(ants_positions);
     free(best_positions);
     free(best_pull_positions);
     free(pull_positions);
