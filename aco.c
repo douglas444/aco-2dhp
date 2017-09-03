@@ -55,10 +55,10 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
     //Declarations
     int i, j, k, **lattice,
         ant_energy, best_energy, pull_energy, iteration_energy,
-        *ant_energy_by_link, *best_energy_by_link, *pull_energy_by_link, *pull_aux_energy_by_link, *iteration_energy_by_link;
+        *ant_energy_by_link, *best_energy_by_link, *best_pull_energy_by_link, *pull_energy_by_link, *iteration_energy_by_link;
 
-    Coord *ant_positions, *best_positions, *pull_positions, *pull_aux_positions, *iteration_positions;
-    Direction *ant_conform, *best_conform, *pull_conform, *pull_aux_conform, *iteration_conform;
+    Coord *ant_positions, *best_positions, *best_pull_positions, *pull_positions, *iteration_positions;
+    Direction *ant_conform, *best_conform, *best_pull_conform, *pull_conform, *iteration_conform;
     Pull_move_config *possible_configs;
 
     float **pheromone;
@@ -66,20 +66,20 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
     //Allocations
     ant_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     best_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
+    best_pull_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     pull_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
-    pull_aux_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
     iteration_energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
 
     ant_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     best_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
+    best_pull_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     pull_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
-    pull_aux_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
     iteration_positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
 
     ant_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     best_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
+    best_pull_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     pull_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
-    pull_aux_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
     iteration_conform = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
 
     possible_configs = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 *
@@ -121,10 +121,10 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
                                            iteration_energy);
 
             ant_energy = calculate_best_pull_move(ant_conform, ant_positions, ant_energy_by_link,
-                                                  seq_len, ant_energy, lattice, seq, pull_conform,
-                                                  pull_positions, pull_energy_by_link,
-                                                  pull_aux_conform, pull_aux_positions,
-                                                  pull_aux_energy_by_link, possible_configs);
+                                                  seq_len, ant_energy, lattice, seq, best_pull_conform,
+                                                  best_pull_positions, best_pull_energy_by_link,
+                                                  pull_conform, pull_positions,
+                                                  pull_energy_by_link, possible_configs);
 
             if (ant_energy < iteration_energy)
             {
@@ -219,20 +219,20 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
     //Free memory
     free(ant_conform);
     free(best_conform);
+    free(best_pull_conform);
     free(pull_conform);
-    free(pull_aux_conform);
     free(iteration_conform);
 
     free(ant_energy_by_link);
     free(best_energy_by_link);
+    free(best_pull_energy_by_link);
     free(pull_energy_by_link);
-    free(pull_aux_energy_by_link);
     free(iteration_energy_by_link);
 
     free(ant_positions);
     free(best_positions);
+    free(best_pull_positions);
     free(pull_positions);
-    free(pull_aux_positions);
     free(iteration_positions);
 
     free(possible_configs);
