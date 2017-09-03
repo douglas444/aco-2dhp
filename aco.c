@@ -120,32 +120,11 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
                                            iteration_conform, iteration_energy_by_link, iteration_positions,
                                            iteration_energy);
 
-            pull_energy = calculate_best_pull_move(ant_conform, ant_positions, ant_energy_by_link,
-                                                   seq_len, ant_energy, lattice, seq, pull_conform,
-                                                   pull_positions, pull_energy_by_link,
-                                                   pull_aux_conform, pull_aux_positions,
-                                                   pull_aux_energy_by_link, possible_configs);
-
-            //Clean lattice
-            for (k = 0; k < seq_len; ++k)
-            {
-                lattice[ant_positions[k].x][ant_positions[k].y] = -1;
-            }
-
-            if (pull_energy <= ant_energy)
-            {
-                for (k = 0; k < seq_len; ++k)
-                {
-                    ant_energy = pull_energy;
-                    ant_positions[k] = pull_positions[k];
-                    if (k < seq_len - 1)
-                    {
-                        ant_conform[k] = pull_conform[k];
-                        ant_energy_by_link[k] = pull_energy_by_link[k];
-                    }
-
-                }
-            }
+            ant_energy = calculate_best_pull_move(ant_conform, ant_positions, ant_energy_by_link,
+                                                  seq_len, ant_energy, lattice, seq, pull_conform,
+                                                  pull_positions, pull_energy_by_link,
+                                                  pull_aux_conform, pull_aux_positions,
+                                                  pull_aux_energy_by_link, possible_configs);
 
             if (ant_energy < iteration_energy)
             {
@@ -173,9 +152,9 @@ int aco_run(int *seq, int seq_len, float alpha, float beta, float evaporation_ra
 
         if (iteration_energy < best_energy)
         {
+            best_energy = iteration_energy;
             for (k = 0; k < seq_len; ++k)
             {
-                best_energy = iteration_energy;
                 best_positions[k] = iteration_positions[k];
                 if (k < seq_len - 1)
                 {
@@ -1049,60 +1028,101 @@ int apply_pull_move(Coord *positions, Direction *conform, int *energy_by_link,
 
 int calculate_best_pull_move(Direction *original_conform, Coord *original_positions,
                              int *original_energy_by_link, int seq_len, int original_energy,
-                             int **lattice, int *seq, Direction *pull_conform,
-                             Coord *pull_positions, int *pull_energy_by_link,
-                             Direction *pull_aux_conform, Coord *pull_aux_positions,
-                             int *pull_aux_energy_by_link, Pull_move_config *possible_configs)
+                             int **lattice, int *seq, Direction *best_pull_conform,
+                             Coord *best_pull_positions, int *best_pull_energy_by_link,
+                             Direction *pull_conform, Coord *pull_positions,
+                             int *pull_energy_by_link, Pull_move_config *possible_configs)
 {
 
-    int i, j, num_possible_configs, pull_energy, pull_aux_energy;
+    int i, j, num_possible_configs, best_pull_energy, pull_energy;
 
     num_possible_configs = 0;
 
+    //Generates all possible pull-moves configs
     for (i = seq_len - 2; i > 0; --i)
     {
         num_possible_configs += generate_pull_move_configs(i, lattice, original_positions,
                                 possible_configs, num_possible_configs, seq_len);
     }
 
-    pull_energy = original_energy;
-    pull_aux_energy = 0;
+    best_pull_energy = 1;//Default value
 
+    //Apply all possible pull-moves and save the best
     for (i = 0; i < num_possible_configs; ++i)
     {
+        //Copy original conformation
+        pull_energy = original_energy;
         for (j = 0; j < seq_len; ++j)
         {
-            if (pull_aux_energy <= pull_energy)
-            {
-                pull_positions[j] = pull_aux_positions[j];
-                if (j < seq_len - 1)
-                {
-                    pull_conform[j] = pull_aux_conform[j];
-                    pull_energy_by_link[j] = pull_aux_energy_by_link[j];
-                }
-            }
-
-            pull_aux_positions[j] = original_positions[j];
+            pull_positions[j] = original_positions[j];
             if (j < seq_len - 1)
             {
-                pull_aux_conform[j] = original_conform[j];
-                pull_aux_energy_by_link[j] = original_energy_by_link[j];
+                pull_conform[j] = original_conform[j];
+                pull_energy_by_link[j] = original_energy_by_link[j];
             }
         }
 
-        if (pull_aux_energy <= pull_energy)
+        //Apply pull move on the copy
+        pull_energy = apply_pull_move(pull_positions, pull_conform,
+                                      pull_energy_by_link, pull_energy,
+                                      possible_configs[i], seq, lattice, seq_len,
+                                      original_positions);
+
+        //If the energy of the new conformation is lower than the actual best, update the best
+        if (pull_energy <= best_pull_energy)
         {
-            pull_energy = pull_aux_energy;
+            best_pull_energy = pull_energy;
+
+            for (j = 0; j < seq_len; ++j)
+            {
+                best_pull_positions[j] = pull_positions[j];
+                if (j < seq_len - 1)
+                {
+                    best_pull_conform[j] = pull_conform[j];
+                    best_pull_energy_by_link[j] = pull_energy_by_link[j];
+                }
+            }
         }
-
-        pull_aux_energy = original_energy;
-
-        pull_aux_energy = apply_pull_move(pull_aux_positions, pull_aux_conform,
-                                          pull_aux_energy_by_link, pull_aux_energy,
-                                          possible_configs[i], seq, lattice, seq_len,
-                                          original_positions);
 
     }
 
-    return pull_energy;
+    /* If the best found pull-moved conformation is better than the original conformation,
+    update the original and return the new energy */
+    if (best_pull_energy < original_energy)
+    {
+        Coord distance_to_lattice_center;
+
+        distance_to_lattice_center.x = seq_len - best_pull_positions[0].x;
+        distance_to_lattice_center.y = seq_len - best_pull_positions[0].y;
+
+        for (i = 0; i < seq_len; ++i)
+        {
+            //Clean lattice
+            lattice[original_positions[i].x][original_positions[i].y] = -1;
+
+            //Move protein to center
+            best_pull_positions[i].x += distance_to_lattice_center.x;
+            best_pull_positions[i].y += distance_to_lattice_center.y;
+
+            //Update original conformation
+            original_positions[i] = best_pull_positions[i];
+            if (i < seq_len - 1)
+            {
+                original_conform[i] = best_pull_conform[i];
+                original_energy_by_link[i] = best_pull_energy_by_link[i];
+            }
+
+        }
+        return best_pull_energy;
+    }
+    else
+    {
+        //Clean lattice
+        for (i = 0; i < seq_len; ++i)
+        {
+            lattice[original_positions[i].x][original_positions[i].y] = -1;
+        }
+        return original_energy;
+    }
+
 }
