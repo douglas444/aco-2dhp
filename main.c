@@ -55,63 +55,75 @@ int main()
 
     float alpha = 1,
           beta = 2,
-          evaporation_rate = 0.9,
+          evaporation_rate = 0.8,
           initial_phero = (float) 1 / 3;
 
     printf("s1:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s1, s1_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -9);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -9) break;
     }
 
     printf("s2:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s2, s2_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -9);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -9) break;
     }
 
     printf("s3:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s3, s3_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -8);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -8) break;
     }
+
+    population_size = 1500;
+    beta = 1;
+    evaporation_rate = 0.9;
 
     printf("s4:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s4, s4_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -14);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -14) break;
     }
 
     printf("s5:\n");
-    for (i = 0; i < 20; ++i)
+    for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s5, s5_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -23);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -23) break;
     }
 
     printf("s6:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s6, s6_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -21);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -21) break;
     }
 
     printf("s7:\n");
     for (i = 0; i < 0; ++i)
     {
         energy = aco_run(s7, s7_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -36);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -36) break;
     }
 
     printf("s8:\n");
-    for (i = 0; i < 20; ++i)
+    for (i = 0; i < 100; ++i)
     {
         energy = aco_run(s8, s8_len, alpha, beta, evaporation_rate, initial_phero, population_size, num_iterations, -42);
-        printf("%d\n", energy);
+        printf("%d (Execução %d)\n", energy, i + 1);
+        if (energy == -42) break;
     }
 
     return 0;
