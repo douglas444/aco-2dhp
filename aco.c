@@ -486,9 +486,10 @@ void pheromone_deposit(float **pheromone, Conformation conformation, int seq_len
   {
     for (j = 0; j < 3; ++j)
     {
-      if (conformation.directions[j] == j && best_energy > 0)
+      if (conformation.directions[i] == j && best_energy > 0)
       {
         pheromone[i][j] += (float) conformation.energy / pow(best_energy, 3);
+        break;
       }
     }
   }
@@ -630,7 +631,7 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
     {
       move = candidates[selected_candidate].move;
       curr_position = candidates[selected_candidate].position;
-      solution.directions[i + 1] = candidates[selected_candidate].direction;
+      solution.directions[i] = candidates[selected_candidate].direction;
       solution.energy_by_link[i] = solution.energy;
       solution.energy -= candidates[selected_candidate].heuristic;
       solution.positions[i + 1] = curr_position;
@@ -1009,7 +1010,7 @@ int apply_pull_move(Conformation conformation, Pull_move_config config, int *seq
       config.prev.y = temp;
 
       /*If reach a valid conformation, stop. Then the last modified will be de i th amino-acid*/
-      if (coords_distance(conformation.positions[i], conformation.positions[i - 1]) == 1)
+      if (i != 0 && coords_distance(conformation.positions[i], conformation.positions[i - 1]) == 1)
       {
         last_modified = i;
         break;
@@ -1289,7 +1290,7 @@ int apply_pull_move_inverse(Conformation conformation, Pull_move_config config,
       config.prev.y = temp;
 
       /*If reach a valid conformation, stop. Then the last modified will be de i th amino-acid*/
-      if (coords_distance(conformation.positions[i], conformation.positions[i + 1]) == 1)
+      if (i != seq_len - 1 && coords_distance(conformation.positions[i], conformation.positions[i + 1]) == 1)
       {
         break;
       }
@@ -1347,6 +1348,172 @@ int apply_pull_move_inverse(Conformation conformation, Pull_move_config config,
   for (i = config.nr_seq; i < seq_len; ++i)
   {
     lattice[ant_positions[i].x][ant_positions[i].y] = i;
+  }
+
+  return conformation.energy;
+}
+
+int apply_tail_pull_move_inverse(Conformation conformation, int *seq, int **lattice, int seq_len) {
+
+  int i;
+  int num_configs = 0;
+  int configs_energy[2];
+  Pull_move_config configs[2];
+
+  configs[0].next = conformation.positions[seq_len - 2];
+  configs[1].next = conformation.positions[seq_len - 2];
+  configs[0].curr = conformation.positions[seq_len - 1];
+  configs[1].curr = conformation.positions[seq_len - 1];
+  configs_energy[0] = 0;
+  configs_energy[1] = 0;
+
+  /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x + 1][configs[num_configs].next.y] == -1 &&
+      configs[num_configs].next.x + 1 != configs[num_configs].curr.x &&
+      configs[num_configs].next.y != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x + 1;
+    configs[num_configs].f.y = configs[num_configs].next.y;
+    ++num_configs;
+  }
+
+  /*If is adjacent (left) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x - 1][configs[num_configs].next.y] == -1 &&
+      configs[num_configs].next.x - 1 != configs[num_configs].curr.x &&
+      configs[num_configs].next.y != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x - 1;
+    configs[num_configs].f.y = configs[num_configs].next.y;
+    ++num_configs;
+  }
+
+  /*If is adjacent (up) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x][configs[num_configs].next.y + 1] == -1 &&
+      configs[num_configs].next.x != configs[num_configs].curr.x &&
+      configs[num_configs].next.y + 1 != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x;
+    configs[num_configs].f.y = configs[num_configs].next.y + 1;
+    ++num_configs;
+  }
+
+  /*If is adjacent (down) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x][configs[num_configs].next.y - 1] == -1 &&
+      configs[num_configs].next.x != configs[num_configs].curr.x &&
+      configs[num_configs].next.y - 1 != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x;
+    configs[num_configs].f.y = configs[num_configs].next.y - 1;
+    ++num_configs;
+  }
+
+  for (i = 0; i < num_configs; ++i)
+  {
+    configs_energy[i] = conformation.energy;
+
+    configs_energy[i] += calculate_absolute_heuristic_value(lattice, seq_len - 1, conformation.positions[seq_len - 1], seq);
+    configs_energy[i] -= calculate_absolute_heuristic_value(lattice, seq_len - 1, configs[i].f, seq);
+  }
+
+  if (num_configs > 0)
+  {
+    if (configs_energy[0] < configs_energy[1])
+    {
+      conformation.energy = configs_energy[0];
+      conformation.positions[seq_len - 1] = configs[0].f;
+    }
+    else
+    {
+      conformation.energy = configs_energy[1];
+      conformation.positions[seq_len - 1] = configs[1].f;
+    }
+
+    Coord substraction1_result = subtract_coord(conformation.positions[seq_len - 2], conformation.positions[seq_len - 3]);
+    Coord substraction2_result = subtract_coord(conformation.positions[seq_len - 1], conformation.positions[seq_len - 2]);
+    conformation.directions[seq_len - 2] = calculate_direction_by_move(substraction1_result, substraction2_result);
+  }
+
+  return conformation.energy;
+}
+
+
+int apply_tail_pull_move(Conformation conformation, int *seq, int **lattice, int seq_len) {
+
+  int i;
+  int num_configs = 0;
+  int configs_energy[2];
+  Pull_move_config configs[2];
+
+  configs[0].next = conformation.positions[1];
+  configs[1].next = conformation.positions[1];
+  configs[0].curr = conformation.positions[0];
+  configs[1].curr = conformation.positions[0];
+  configs_energy[0] = 0;
+  configs_energy[1] = 0;
+
+  /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x + 1][configs[num_configs].next.y] == -1 &&
+      configs[num_configs].next.x + 1 != configs[num_configs].curr.x &&
+      configs[num_configs].next.y != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x + 1;
+    configs[num_configs].f.y = configs[num_configs].next.y;
+    ++num_configs;
+  }
+
+  /*If is adjacent (left) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x - 1][configs[num_configs].next.y] == -1 &&
+      configs[num_configs].next.x - 1 != configs[num_configs].curr.x &&
+      configs[num_configs].next.y != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x - 1;
+    configs[num_configs].f.y = configs[num_configs].next.y;
+    ++num_configs;
+  }
+
+  /*If is adjacent (up) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x][configs[num_configs].next.y + 1] == -1 &&
+      configs[num_configs].next.x != configs[num_configs].curr.x &&
+      configs[num_configs].next.y + 1 != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x;
+    configs[num_configs].f.y = configs[num_configs].next.y + 1;
+    ++num_configs;
+  }
+
+  /*If is adjacent (down) to next amino-acid and diagonally adjacent to current amino-acid*/
+  if (num_configs < 2 && lattice[configs[num_configs].next.x][configs[num_configs].next.y - 1] == -1 &&
+      configs[num_configs].next.x != configs[num_configs].curr.x &&
+      configs[num_configs].next.y - 1 != configs[num_configs].curr.y)
+  {
+    configs[num_configs].f.x = configs[num_configs].next.x;
+    configs[num_configs].f.y = configs[num_configs].next.y - 1;
+    ++num_configs;
+  }
+
+  for (i = 0; i < num_configs; ++i)
+  {
+    configs_energy[i] = conformation.energy;
+
+    configs_energy[i] += calculate_absolute_heuristic_value(lattice, 0, conformation.positions[0], seq);
+    configs_energy[i] -= calculate_absolute_heuristic_value(lattice, 0, configs[i].f, seq);
+  }
+
+  if (num_configs > 0)
+  {
+    if (configs_energy[0] < configs_energy[1])
+    {
+      conformation.energy = configs_energy[0];
+      conformation.positions[0] = configs[0].f;
+    }
+    else
+    {
+      conformation.energy = configs_energy[1];
+      conformation.positions[0] = configs[1].f;
+    }
+
+    Coord substraction_result = subtract_coord(conformation.positions[1], conformation.positions[0]);
+    conformation.directions[seq_len - 2] = calculate_absolute_direction_by_move(substraction_result);
   }
 
   return conformation.energy;
@@ -1450,10 +1617,79 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
     }
   }
 
+  if (seq[seq_len - 1] == 1)
+  {
+    /*Copy original conformation*/
+    config_conformation.energy = ant_conformation.energy;
+    for (j = 0; j < seq_len; ++j)
+    {
+      config_conformation.positions[j] = ant_conformation.positions[j];
+      if (j < seq_len - 1)
+      {
+        config_conformation.directions[j] = ant_conformation.directions[j];
+        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
+      }
+    }
+
+    /*Apply tail pull-move*/
+    config_conformation.energy = apply_tail_pull_move_inverse(config_conformation, seq, lattice, seq_len);
+
+    /*If the energy of the new conformation is lower than the actual best, update the best*/
+    if (config_conformation.energy < best_conformation.energy)
+    {
+      best_conformation.energy = config_conformation.energy;
+
+      for (j = 0; j < seq_len; ++j)
+      {
+        best_conformation.positions[j] = config_conformation.positions[j];
+        if (j < seq_len - 1)
+        {
+          best_conformation.directions[j] = config_conformation.directions[j];
+          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
+        }
+      }
+    }
+  }
+
+
+  if (seq[0] == 1)
+  {
+    /*Copy original conformation*/
+    config_conformation.energy = ant_conformation.energy;
+    for (j = 0; j < seq_len; ++j)
+    {
+      config_conformation.positions[j] = ant_conformation.positions[j];
+      if (j < seq_len - 1)
+      {
+        config_conformation.directions[j] = ant_conformation.directions[j];
+        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
+      }
+    }
+
+    /*Apply tail pull-move*/
+    config_conformation.energy = apply_tail_pull_move(config_conformation, seq, lattice, seq_len);
+
+    /*If the energy of the new conformation is lower than the actual best, update the best*/
+    if (config_conformation.energy < best_conformation.energy)
+    {
+      best_conformation.energy = config_conformation.energy;
+
+      for (j = 0; j < seq_len; ++j)
+      {
+        best_conformation.positions[j] = config_conformation.positions[j];
+        if (j < seq_len - 1)
+        {
+          best_conformation.directions[j] = config_conformation.directions[j];
+          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
+        }
+      }
+    }
+  }
+
   /**CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION*/
 
-  /* If the best found pull-moved conformation is better than the original conformation,
-  update the original and return the new energy */
+  /*If the best found pull-moved conformation is better than the original conformation,
+  update the original and return the new energy*/
   if (best_conformation.energy < ant_conformation.energy)
   {
     Coord distance_to_lattice_center;

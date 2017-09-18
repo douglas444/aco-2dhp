@@ -50,15 +50,18 @@ int main()
   Aco_config aco_config;
 
   aco_config.alpha = 1;
-  aco_config.beta = 2;
+  aco_config.beta = 1;
   aco_config.ini_pheromone = (float) 1 / 3;
   aco_config.persistence = 0.8;
   aco_config.iterations = 500;
   aco_config.population = 1500;
-  aco_config.best_known_solution = -42;
+  aco_config.best_known_solution = -36;
 
-  Conformation conformation = aco_run(s8, s8_len, aco_config, 1);
-  printf("%d\n", conformation.energy);
-
+  int i;
+  for (i = 0; i < 20; ++i)
+  {
+    Conformation conformation = aco_run(s8, s8_len, aco_config, 1);
+    printf("%d\n", conformation.energy);
+  }
   return 0;
 }
