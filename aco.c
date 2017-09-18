@@ -31,11 +31,12 @@ int       generate_pull_move_configs           (int nr_seq, int **lattice, Coord
 int       apply_pull_move                      (Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions);
 int       apply_pull_move_inverse              (Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions);
 int       calculate_best_pull_move             (int *seq, int seq_len, Conformation ant_conformation,int **lattice, Conformation best_conformation, Conformation config_conformation, Pull_move_config *configs, Pull_move_config *configs_inverse);
+int       apply_tail_pull_move                 (Conformation conformation, int *seq, int **lattice, int seq_len);
+int       apply_tail_pull_move_inverse         (Conformation conformation, int *seq, int **lattice, int seq_len);
 Coord     calculate_move_by_direction          (Coord prev_move, Direction curr_direction);
 Coord     subtract_coord                       (Coord c1, Coord c2);
 Direction calculate_direction_by_move          (Coord prev_move, Coord curr_move);
 Direction calculate_absolute_direction_by_move (Coord move);
-
 
 /*********************************************************************************************************************/
 
@@ -1417,7 +1418,7 @@ int apply_tail_pull_move_inverse(Conformation conformation, int *seq, int **latt
 
   if (num_configs > 0)
   {
-    if (configs_energy[0] < configs_energy[1])
+    if (configs_energy[0] < configs_energy[1] || num_configs == 1)
     {
       conformation.energy = configs_energy[0];
       conformation.positions[seq_len - 1] = configs[0].f;
@@ -1437,7 +1438,8 @@ int apply_tail_pull_move_inverse(Conformation conformation, int *seq, int **latt
 }
 
 
-int apply_tail_pull_move(Conformation conformation, int *seq, int **lattice, int seq_len) {
+int apply_tail_pull_move(Conformation conformation, int *seq, int **lattice, int seq_len)
+{
 
   int i;
   int num_configs = 0;
@@ -1501,7 +1503,7 @@ int apply_tail_pull_move(Conformation conformation, int *seq, int **lattice, int
 
   if (num_configs > 0)
   {
-    if (configs_energy[0] < configs_energy[1])
+    if (configs_energy[0] < configs_energy[1]  || num_configs == 1)
     {
       conformation.energy = configs_energy[0];
       conformation.positions[0] = configs[0].f;
