@@ -119,25 +119,10 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
       ants_conformation[j].energy = construct_conform(seq, seq_len, ants_conformation[j], aco_config, pheromone,
                                                       lattice, ants_conformation[iteration_best_index],
                                                       iteration_best_energy);
-
-      if (actived_pull_move)
+      /*Clean lattice*/
+      for (k = 0; k < seq_len; ++k)
       {
-        /*Find best pull-move for ant conformation.
-        If theres no improvement, ant conformation keeps the same.
-        Lattice matrix is cleaned in this function*/
-        ants_conformation[j].energy = calculate_best_pull_move(seq, seq_len, ants_conformation[j], lattice,
-                                                               pull_move_vars.best_conformation,
-                                                               pull_move_vars.config_conformation,
-                                                               pull_move_vars.configs,
-                                                               pull_move_vars.configs_inverse);
-      }
-      else
-      {
-        /*Clean lattice*/
-        for (k = 0; k < seq_len; ++k)
-        {
-          lattice[ants_conformation[j].positions[k].x][ants_conformation[j].positions[k].y] = -1;
-        }
+        lattice[ants_conformation[j].positions[k].x][ants_conformation[j].positions[k].y] = -1;
       }
 
       /*Update best iteration conformation*/
@@ -147,6 +132,25 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
         iteration_best_energy = ants_conformation[j].energy;
       }
 
+    }
+
+    if (actived_pull_move) {
+
+      for (j = 0; j < aco_config.population; ++j)
+      {
+        /*Find best pull-move for ant conformation.*/
+        ants_conformation[j].energy = calculate_best_pull_move(seq, seq_len, ants_conformation[j], lattice,
+                                                               pull_move_vars.best_conformation,
+                                                               pull_move_vars.config_conformation,
+                                                               pull_move_vars.configs,
+                                                               pull_move_vars.configs_inverse);
+
+        if (ants_conformation[j].energy < iteration_best_energy)
+        {
+          iteration_best_index = j;
+          iteration_best_energy = ants_conformation[j].energy;
+        }
+      }
     }
 
     /*Update best iteration conformation*/
@@ -159,7 +163,6 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
         if (j < seq_len - 1)
         {
           best_conformation.directions[j] =  ants_conformation[iteration_best_index].directions[j];
-          best_conformation.energy_by_link[j] =  ants_conformation[iteration_best_index].energy_by_link[j];
         }
       }
     }
@@ -1036,27 +1039,6 @@ int apply_pull_move(Conformation conformation, Pull_move_config config, int *seq
     }
   }
 
-  /**RECALCULATES ENERGY BY LINK*/
-  for (i = last_modified; i < seq_len - 1; ++i)
-  {
-    if (i == 0)
-    {
-      conformation.energy_by_link[i] = 0;
-    }
-    else
-    {
-      if (seq[i] == 1)
-      {
-        conformation.energy_by_link[i] = conformation.energy_by_link[i - 1];
-        conformation.energy_by_link[i] -= calculate_relative_heuristic_value(lattice, i,  conformation.positions[i], seq);
-      }
-      else
-      {
-        conformation.energy_by_link[i] = conformation.energy_by_link[i - 1];
-      }
-    }
-  }
-
   /**DEVOLVES LATTICE TO ORIGINAL STATE*/
   for (i = last_modified; i < config.nr_seq + 1; ++i)
   {
@@ -1320,27 +1302,6 @@ int apply_pull_move_inverse(Conformation conformation, Pull_move_config config,
     }
   }
 
-  /**RECALCULATES ENERGY BY LINK*/
-  for (i = config.nr_seq - 1; i < seq_len - 1; ++i) /*TO-DO Implement last_modified variable to improve this loop*/
-  {
-    if (i == 0)
-    {
-      conformation.energy_by_link[i] = 0;
-    }
-    else
-    {
-      if (seq[i] == 1)
-      {
-        conformation.energy_by_link[i] = conformation.energy_by_link[i - 1];
-        conformation.energy_by_link[i] -= calculate_relative_heuristic_value(lattice, i, conformation.positions[i], seq);
-      }
-      else
-      {
-        conformation.energy_by_link[i] = conformation.energy_by_link[i - 1];
-      }
-    }
-  }
-
   /**DEVOLVES LATTICE TO ORIGINAL STATE*/
   for (i = config.nr_seq; i < seq_len; ++i)
   {
@@ -1531,6 +1492,11 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
   int num_configs_inverse = 0;
 
 
+  for (i = 0; i < seq_len; ++i)
+  {
+    lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = i;
+  }
+
   /**GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS*/
 
   for (i = seq_len - 2; i > 0; --i)
@@ -1558,7 +1524,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
       if (j < seq_len - 1)
       {
         config_conformation.directions[j] = ant_conformation.directions[j];
-        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
       }
     }
 
@@ -1577,7 +1542,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         if (j < seq_len - 1)
         {
           best_conformation.directions[j] = config_conformation.directions[j];
-          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
         }
       }
     }
@@ -1594,7 +1558,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
       if (j < seq_len - 1)
       {
         config_conformation.directions[j] = ant_conformation.directions[j];
-        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
       }
     }
 
@@ -1613,7 +1576,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         if (j < seq_len - 1)
         {
           best_conformation.directions[j] = config_conformation.directions[j];
-          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
         }
       }
     }
@@ -1629,7 +1591,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
       if (j < seq_len - 1)
       {
         config_conformation.directions[j] = ant_conformation.directions[j];
-        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
       }
     }
 
@@ -1647,7 +1608,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         if (j < seq_len - 1)
         {
           best_conformation.directions[j] = config_conformation.directions[j];
-          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
         }
       }
     }
@@ -1664,7 +1624,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
       if (j < seq_len - 1)
       {
         config_conformation.directions[j] = ant_conformation.directions[j];
-        config_conformation.energy_by_link[j] = ant_conformation.energy_by_link[j];
       }
     }
 
@@ -1682,7 +1641,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         if (j < seq_len - 1)
         {
           best_conformation.directions[j] = config_conformation.directions[j];
-          best_conformation.energy_by_link[j] = config_conformation.energy_by_link[j];
         }
       }
     }
@@ -1692,7 +1650,7 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
 
   /*If the best found pull-moved conformation is better than the original conformation,
   update the original and return the new energy*/
-  if (best_conformation.energy < ant_conformation.energy)
+  if (best_conformation.energy != 0 && best_conformation.energy <= ant_conformation.energy)
   {
     Coord distance_to_lattice_center;
 
@@ -1713,7 +1671,6 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
       if (i < seq_len - 1)
       {
         ant_conformation.directions[i] = best_conformation.directions[i];
-        ant_conformation.energy_by_link[i] = best_conformation.energy_by_link[i];
       }
 
     }

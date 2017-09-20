@@ -5,7 +5,6 @@
 
 int main()
 {
-
   int s1[20] = {1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0,
                 0, 1, 0, 1};
 
@@ -55,12 +54,12 @@ int main()
   aco_config.persistence = 0.8;
   aco_config.iterations = 500;
   aco_config.population = 1500;
-  aco_config.best_known_solution = -23;
+  aco_config.best_known_solution = -42;
 
   int i;
   for (i = 0; i < 20; ++i)
   {
-    Conformation conformation = aco_run(s5, s5_len, aco_config, 1);
+    Conformation conformation = aco_run(s8, s8_len, aco_config, 1);
     printf("%d\n", conformation.energy);
   }
   return 0;
