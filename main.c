@@ -5,6 +5,7 @@
 
 int main()
 {
+
   int s1[20] = {1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0,
                 0, 1, 0, 1};
 
@@ -45,22 +46,30 @@ int main()
   int s6_len = 50;
   int s7_len = 60;
   int s8_len = 64;
-
+  double tempo;
+  clock_t t0;
   Aco_config aco_config;
+  int count;
 
   aco_config.alpha = 1;
   aco_config.beta = 2;
-  aco_config.ini_pheromone = (float) 1 / 3;
+  aco_config.ini_pheromone = (double) 1/3;
   aco_config.persistence = 0.8;
   aco_config.iterations = 500;
   aco_config.population = 1500;
   aco_config.best_known_solution = -42;
 
-  int i;
-  for (i = 0; i < 20; ++i)
+  Conformation conformation;
+  count = 0;
+
+  //srand((unsigned) time(NULL));
+  while (1)
   {
-    Conformation conformation = aco_run(s8, s8_len, aco_config, 1);
-    printf("%d\n", conformation.energy);
+    ++count;
+    t0 = clock();
+    conformation = aco_run(s8, s8_len, aco_config);
+    tempo = (clock() - t0)/(double)CLOCKS_PER_SEC;
+    printf("Tempo(s): %f; Energia: %d; Nr. exe: %d;\n", tempo, conformation.energy, count);
   }
   return 0;
 }

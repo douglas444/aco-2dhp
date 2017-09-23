@@ -10,10 +10,10 @@ typedef struct aco_config
   int population;
   int iterations;
   int best_known_solution;
-  float alpha;
-  float beta;
-  float persistence;
-  float ini_pheromone;
+  double alpha;
+  double beta;
+  double persistence;
+  double ini_pheromone;
 
 } Aco_config;
 
@@ -35,4 +35,4 @@ typedef struct conformation
 } Conformation;
 
 
-Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_pull_move);
+Conformation aco_run(int *seq, int seq_len, Aco_config aco_config);

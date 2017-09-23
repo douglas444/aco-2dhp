@@ -17,12 +17,12 @@ typedef struct pull_move_config
 
 
 int       calculate_absolute_heuristic_value   (int **lattice, int nr_seq, Coord pos, int *seq);
-int       random_select                        (float *probabilities, int len);
-int       construct_conform                    (int *seq, int seq_len, Conformation solution, Aco_config aco_config, float **pheromone, int **lattice, Conformation best_ant_solution, int iteration_best_energy);
+int       random_select                        (double *probabilities, int len);
+int       construct_conform                    (int *seq, int seq_len, Conformation solution, Aco_config aco_config, double **pheromone, int **lattice, int *best_partial_indexes, int ant_index, Conformation *ants_conformation);
 int       calculate_relative_heuristic_value   (int **lattice, int nr_seq, Coord pos, int *seq);
 int       coords_distance                      (Coord c1, Coord c2);
-void      pheromone_deposit                    (float **pheromone, Conformation conform, int seq_len, int best_energy);
-void      pheromone_evaporation                (float **pheromone, int seq_len, float evaporation_rate);
+void      pheromone_deposit                    (double **pheromone, Conformation conform, int seq_len, int best_energy);
+void      pheromone_evaporation                (double **pheromone, int seq_len, double evaporation_rate);
 void      initialize_conform                   (Conformation *c, int seq_len);
 void      destroy_conform                      (Conformation c);
 void*     memory_allocation                    (int mem_size);
@@ -41,7 +41,7 @@ Direction calculate_absolute_direction_by_move (Coord move);
 /*********************************************************************************************************************/
 
 
-Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_pull_move)
+Conformation aco_run(int *seq, int seq_len, Aco_config aco_config)
 {
 
   /**VARIABLES DECLARATIONS*/
@@ -49,10 +49,11 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
   int i;
   int j;
   int k;
-  int iteration_best_index;
   int iteration_best_energy;
+  int iteration_best_index;
+  int* best_partials_indexes;
   int** lattice;
-  float** pheromone;
+  double** pheromone;
   Conformation* ants_conformation;
   Conformation best_conformation;
 
@@ -70,8 +71,9 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
 
   /**MEMORY ALLOCATIONS AND VARIABLES INITIALIZATIONS*/
 
+  best_partials_indexes = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
   lattice = (int**) memory_allocation(sizeof(int*) * (2 * seq_len + 1));
-  pheromone = (float**) memory_allocation(sizeof(float*) * seq_len);
+  pheromone = (double**) memory_allocation(sizeof(double*) * seq_len);
   ants_conformation = (Conformation*) memory_allocation(sizeof(Conformation) * aco_config.population);
   pull_move_vars.configs = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 * (seq_len - 2));
   pull_move_vars.configs_inverse = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 * (seq_len - 2));
@@ -81,7 +83,11 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
 
   for (i = 0; i < seq_len; ++i)
   {
-    pheromone[i] = (float*) memory_allocation(sizeof(float) * 3);
+    pheromone[i] = (double*) memory_allocation(sizeof(double) * 3);
+    if (i < seq_len - 1)
+    {
+      best_partials_indexes[i] = -1;
+    }
     for (j = 0; j < 3; ++j)
     {
       pheromone[i][j] = aco_config.ini_pheromone;
@@ -109,47 +115,47 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
 
   for (i = 0; i < aco_config.iterations; ++i)
   {
-    iteration_best_index = 0;
-    iteration_best_energy = 0;
 
     for (j = 0; j < aco_config.population; ++j)
     {
 
       /*Constructs ant conformation*/
-      ants_conformation[j].energy = construct_conform(seq, seq_len, ants_conformation[j], aco_config, pheromone,
-                                                      lattice, ants_conformation[iteration_best_index],
-                                                      iteration_best_energy);
+      ants_conformation[j].energy = construct_conform(seq,
+                                                      seq_len,
+                                                      ants_conformation[j],
+                                                      aco_config,
+                                                      pheromone,
+                                                      lattice,
+                                                      best_partials_indexes,
+                                                      j,
+                                                      ants_conformation);
       /*Clean lattice*/
       for (k = 0; k < seq_len; ++k)
       {
         lattice[ants_conformation[j].positions[k].x][ants_conformation[j].positions[k].y] = -1;
       }
 
-      /*Update best iteration conformation*/
+    }
+
+    for (j = 0; j < seq_len - 1; ++j)
+    {
+      best_partials_indexes[j] = -1;
+    }
+
+    iteration_best_index = 0;
+    iteration_best_energy = 0;
+    for (j = 0; j < aco_config.population; ++j)
+    {
+      /*Find best pull-move for ant conformation.*/
+      ants_conformation[j].energy = calculate_best_pull_move(seq, seq_len, ants_conformation[j], lattice,
+                                                              pull_move_vars.best_conformation,
+                                                              pull_move_vars.config_conformation,
+                                                              pull_move_vars.configs,
+                                                              pull_move_vars.configs_inverse);
       if (ants_conformation[j].energy < iteration_best_energy)
       {
         iteration_best_index = j;
         iteration_best_energy = ants_conformation[j].energy;
-      }
-
-    }
-
-    if (actived_pull_move) {
-
-      for (j = 0; j < aco_config.population; ++j)
-      {
-        /*Find best pull-move for ant conformation.*/
-        ants_conformation[j].energy = calculate_best_pull_move(seq, seq_len, ants_conformation[j], lattice,
-                                                               pull_move_vars.best_conformation,
-                                                               pull_move_vars.config_conformation,
-                                                               pull_move_vars.configs,
-                                                               pull_move_vars.configs_inverse);
-
-        if (ants_conformation[j].energy < iteration_best_energy)
-        {
-          iteration_best_index = j;
-          iteration_best_energy = ants_conformation[j].energy;
-        }
       }
     }
 
@@ -196,6 +202,7 @@ Conformation aco_run(int *seq, int seq_len, Aco_config aco_config, int actived_p
     free(lattice[i]);
   }
 
+  free(best_partials_indexes);
   free(lattice);
   free(pheromone);
   free(ants_conformation);
@@ -463,7 +470,7 @@ int calculate_absolute_heuristic_value(int **lattice, int nr_seq, Coord pos, int
   return heuristic_value;
 }
 
-int random_select(float *probabilities, int len)
+int random_select(double *probabilities, int len)
 {
   int i = 0;
   int result = -1;
@@ -481,7 +488,7 @@ int random_select(float *probabilities, int len)
   }
   return result;
 }
-void pheromone_deposit(float **pheromone, Conformation conformation, int seq_len, int best_energy)
+void pheromone_deposit(double **pheromone, Conformation conformation, int seq_len, int best_energy)
 {
   int i;
   int j;
@@ -492,14 +499,14 @@ void pheromone_deposit(float **pheromone, Conformation conformation, int seq_len
     {
       if (conformation.directions[i] == j && best_energy > 0)
       {
-        pheromone[i][j] += (float) conformation.energy / pow(best_energy, 3);
+        pheromone[i][j] += (double) conformation.energy / pow(best_energy, 3);
         break;
       }
     }
   }
 }
 
-void pheromone_evaporation(float **pheromone, int seq_len, float evaporation_rate)
+void pheromone_evaporation(double **pheromone, int seq_len, double evaporation_rate)
 {
   int i;
   int j;
@@ -514,8 +521,8 @@ void pheromone_evaporation(float **pheromone, int seq_len, float evaporation_rat
 }
 
 int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config aco_config,
-                      float **pheromone, int **lattice, Conformation best_ant_solution,
-                      int iteration_best_energy)
+                      double **pheromone, int **lattice, int *best_partial_indexes, int ant_index,
+                      Conformation *ants_conformation)
 {
   /**DECLARATIONS*/
 
@@ -523,8 +530,8 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
   int j;
   int num_candidates;
   int selected_candidate;
-  float sum_probabilities;
-  float probabilities[3];
+  double sum_probabilities;
+  double probabilities[3];
   Coord curr_position;
   Coord move;
   Coord candidate_move;
@@ -594,7 +601,7 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
 
         probabilities[num_candidates] =
           pow(pheromone[i][j], aco_config.alpha) *
-          pow(exp((float) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
+          pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
 
         sum_probabilities += probabilities[num_candidates];
         ++num_candidates;
@@ -629,7 +636,7 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
     }
 
 
-    /**UPDATE CONFORM*/
+    /**UPDATE CONFORMATION*/
 
     if (selected_candidate != -1)
     {
@@ -640,13 +647,14 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
       solution.energy -= candidates[selected_candidate].heuristic;
       solution.positions[i + 1] = curr_position;
       lattice[curr_position.x][curr_position.y] = i + 1;
+
     }
     else
     {
       /**WHEN IS IMPOSSIBLE CONTINUE THE FOLD PROCESS*/
 
       /*If theres no another conformation to copy*/
-      if (iteration_best_energy == 0)
+      if (best_partial_indexes[i] == -1)
       {
         /*Cleans lattice*/
         for (j = 0; j <= i; ++j)
@@ -682,20 +690,28 @@ int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config a
         /*Copy best_ant_solution until i th amino-acid*/
         for (j = 0; j <= i; ++j)
         {
-          lattice[best_ant_solution.positions[j].x][best_ant_solution.positions[j].y] = j;
-          solution.positions[j] = best_ant_solution.positions[j];
+          lattice[ants_conformation[best_partial_indexes[i]].positions[j].x][ants_conformation[best_partial_indexes[i]].positions[j].y] = j;
+          solution.positions[j] = ants_conformation[best_partial_indexes[i]].positions[j];
           if (j != i)
           {
-            solution.directions[j] = best_ant_solution.directions[j];
-            solution.energy_by_link[j] = best_ant_solution.energy_by_link[j];
+            solution.directions[j] = ants_conformation[best_partial_indexes[i]].directions[j];
+            solution.energy_by_link[j] = ants_conformation[best_partial_indexes[i]].energy_by_link[j];
           }
         }
-        curr_position = best_ant_solution.positions[i];
-        solution.energy = best_ant_solution.energy_by_link[i];
-        move.x = curr_position.x - best_ant_solution.positions[i - 1].x;
-        move.y = curr_position.y - best_ant_solution.positions[i - 1].y;
+        curr_position = ants_conformation[best_partial_indexes[i]].positions[i];
+        solution.energy = ants_conformation[best_partial_indexes[i]].energy_by_link[i];
+        move.x = curr_position.x - ants_conformation[best_partial_indexes[i]].positions[i - 1].x;
+        move.y = curr_position.y - ants_conformation[best_partial_indexes[i]].positions[i - 1].y;
         --i;
       }
+    }
+  }
+
+  for (i = 0; i < seq_len - 1; ++i)
+  {
+    if (best_partial_indexes[i] == -1 || ants_conformation[best_partial_indexes[i]].energy_by_link[i] > solution.energy_by_link[i])
+    {
+      best_partial_indexes[i] = ant_index;
     }
   }
 
@@ -1490,99 +1506,105 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
   int j;
   int num_configs = 0;
   int num_configs_inverse = 0;
+  int previous_energy;
 
-
-  for (i = 0; i < seq_len; ++i)
-  {
-    lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = i;
-  }
-
-  /**GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS*/
-
-  for (i = seq_len - 2; i > 0; --i)
-  {
-    num_configs += generate_pull_move_configs(i, lattice, ant_conformation.positions, configs, num_configs, seq_len);
-  }
-  for (i = 1; i < seq_len - 1; ++i)
-  {
-    num_configs_inverse += generate_pull_move_configs_inverse(i, lattice, ant_conformation.positions,
-                                                              configs_inverse, num_configs_inverse, seq_len);
-  }
-
-  /**FIND BEST PULL-MOVE*/
+  /**APPLY OULL-MOVE WHILE THERE IS IMPORVEMENT*/
 
   best_conformation.energy = 0;
 
-  /*Apply all possible inverse pull-moves and save the best*/
-  for (i = 0; i < num_configs_inverse; ++i)
-  {
-    /*Copy original conformation*/
-    config_conformation.energy = ant_conformation.energy;
-    for (j = 0; j < seq_len; ++j)
+  do {
+
+    num_configs = 0;
+    num_configs_inverse = 0;
+    previous_energy = ant_conformation.energy;
+
+    for (i = 0; i < seq_len; ++i)
     {
-      config_conformation.positions[j] = ant_conformation.positions[j];
-      if (j < seq_len - 1)
-      {
-        config_conformation.directions[j] = ant_conformation.directions[j];
-      }
+      lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = i;
     }
 
-    /*Apply pull move on the copy*/
-    config_conformation.energy = apply_pull_move_inverse(config_conformation, configs_inverse[i], seq,
-                                                         lattice, seq_len, ant_conformation.positions);
+    /**GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS*/
 
-    /*If the energy of the new conformation is lower than the actual best, update the best*/
-    if (config_conformation.energy < best_conformation.energy)
+    for (i = seq_len - 2; i > 0; --i)
     {
-      best_conformation.energy = config_conformation.energy;
+      num_configs += generate_pull_move_configs(i, lattice, ant_conformation.positions, configs, num_configs, seq_len);
+    }
+    for (i = 1; i < seq_len - 1; ++i)
+    {
+      num_configs_inverse += generate_pull_move_configs_inverse(i, lattice, ant_conformation.positions,
+                                                                configs_inverse, num_configs_inverse, seq_len);
+    }
 
+    /*Apply all possible inverse pull-moves and save the best*/
+    for (i = 0; i < num_configs_inverse; ++i)
+    {
+      /*Copy original conformation*/
+      config_conformation.energy = ant_conformation.energy;
       for (j = 0; j < seq_len; ++j)
       {
-        best_conformation.positions[j] = config_conformation.positions[j];
+        config_conformation.positions[j] = ant_conformation.positions[j];
         if (j < seq_len - 1)
         {
-          best_conformation.directions[j] = config_conformation.directions[j];
+          config_conformation.directions[j] = ant_conformation.directions[j];
+        }
+      }
+
+      /*Apply pull move on the copy*/
+      config_conformation.energy = apply_pull_move_inverse(config_conformation, configs_inverse[i], seq,
+                                                           lattice, seq_len, ant_conformation.positions);
+
+      /*If the energy of the new conformation is lower than the actual best, update the best*/
+      if (config_conformation.energy < best_conformation.energy)
+      {
+        best_conformation.energy = config_conformation.energy;
+
+        for (j = 0; j < seq_len; ++j)
+        {
+          best_conformation.positions[j] = config_conformation.positions[j];
+          if (j < seq_len - 1)
+          {
+            best_conformation.directions[j] = config_conformation.directions[j];
+          }
         }
       }
     }
-  }
 
-  /*Apply all possible pull-moves and save the best*/
-  for (i = 0; i < num_configs; ++i)
-  {
-    /*Copy original conformation*/
-    config_conformation.energy = ant_conformation.energy;
-    for (j = 0; j < seq_len; ++j)
+    /*Apply all possible pull-moves and save the best*/
+    for (i = 0; i < num_configs; ++i)
     {
-      config_conformation.positions[j] = ant_conformation.positions[j];
-      if (j < seq_len - 1)
-      {
-        config_conformation.directions[j] = ant_conformation.directions[j];
-      }
-    }
-
-    /*Apply pull move on the copy*/
-    config_conformation.energy = apply_pull_move(config_conformation, configs[i], seq,
-                                                 lattice, seq_len, ant_conformation.positions);
-
-    /*If the energy of the new conformation is lower than the actual best, update the best*/
-    if (config_conformation.energy < best_conformation.energy)
-    {
-      best_conformation.energy = config_conformation.energy;
-
+      /*Copy original conformation*/
+      config_conformation.energy = ant_conformation.energy;
       for (j = 0; j < seq_len; ++j)
       {
-        best_conformation.positions[j] = config_conformation.positions[j];
+        config_conformation.positions[j] = ant_conformation.positions[j];
         if (j < seq_len - 1)
         {
-          best_conformation.directions[j] = config_conformation.directions[j];
+          config_conformation.directions[j] = ant_conformation.directions[j];
+        }
+      }
+
+      /*Apply pull move on the copy*/
+      config_conformation.energy = apply_pull_move(config_conformation, configs[i], seq,
+                                                   lattice, seq_len, ant_conformation.positions);
+
+      /*If the energy of the new conformation is lower than the actual best, update the best*/
+      if (config_conformation.energy < best_conformation.energy)
+      {
+        best_conformation.energy = config_conformation.energy;
+
+        for (j = 0; j < seq_len; ++j)
+        {
+          best_conformation.positions[j] = config_conformation.positions[j];
+          if (j < seq_len - 1)
+          {
+            best_conformation.directions[j] = config_conformation.directions[j];
+          }
         }
       }
     }
-  }
 
-  if (seq[seq_len - 1] == 1)
-  {
+    /**END-MOVES*/
+
     /*Copy original conformation*/
     config_conformation.energy = ant_conformation.energy;
     for (j = 0; j < seq_len; ++j)
@@ -1611,11 +1633,7 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         }
       }
     }
-  }
 
-
-  if (seq[0] == 1)
-  {
     /*Copy original conformation*/
     config_conformation.energy = ant_conformation.energy;
     for (j = 0; j < seq_len; ++j)
@@ -1644,45 +1662,50 @@ int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformatio
         }
       }
     }
-  }
 
-  /**CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION*/
 
-  /*If the best found pull-moved conformation is better than the original conformation,
-  update the original and return the new energy*/
-  if (best_conformation.energy != 0 && best_conformation.energy <= ant_conformation.energy)
-  {
-    Coord distance_to_lattice_center;
+    /**CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION*/
 
-    distance_to_lattice_center.x = seq_len - best_conformation.positions[0].x;
-    distance_to_lattice_center.y = seq_len - best_conformation.positions[0].y;
-
-    for (i = 0; i < seq_len; ++i)
+    /*If the best found pull-moved conformation is better than the original conformation,
+    update the original and return the new energy*/
+    if (best_conformation.energy != 0 && best_conformation.energy <= ant_conformation.energy)
     {
-      /*Clean lattice*/
-      lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
+      Coord distance_to_lattice_center;
 
-      /*Move protein to center*/
-      best_conformation.positions[i].x += distance_to_lattice_center.x;
-      best_conformation.positions[i].y += distance_to_lattice_center.y;
+      distance_to_lattice_center.x = seq_len - best_conformation.positions[0].x;
+      distance_to_lattice_center.y = seq_len - best_conformation.positions[0].y;
+      ant_conformation.energy = previous_energy;
 
-      /*Update original conformation*/
-      ant_conformation.positions[i] = best_conformation.positions[i];
-      if (i < seq_len - 1)
+      for (i = 0; i < seq_len; ++i)
       {
-        ant_conformation.directions[i] = best_conformation.directions[i];
+        /*Clean lattice*/
+        lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
       }
 
+      for (i = 0; i < seq_len; ++i)
+      {
+        /*Move protein to center*/
+        best_conformation.positions[i].x += distance_to_lattice_center.x;
+        best_conformation.positions[i].y += distance_to_lattice_center.y;
+
+        ant_conformation.energy = best_conformation.energy;
+
+        /*Update original conformation*/
+        ant_conformation.positions[i] = best_conformation.positions[i];
+        if (i < seq_len - 1)
+        {
+          ant_conformation.directions[i] = best_conformation.directions[i];
+        }
+
+      }
     }
-    return best_conformation.energy;
   }
-  else
+  while(best_conformation.energy < previous_energy);
+
+  /*Clean lattice*/
+  for (i = 0; i < seq_len; ++i)
   {
-    /*Clean lattice*/
-    for (i = 0; i < seq_len; ++i)
-    {
-      lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
-    }
-    return ant_conformation.energy;
+    lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
   }
+  return ant_conformation.energy;
 }
