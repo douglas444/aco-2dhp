@@ -57,17 +57,17 @@ int main()
   aco_config.persistence = 0.8;
   aco_config.iterations = 500;
   aco_config.population = 1500;
-  aco_config.best_known_solution = -42;
+  aco_config.best_known_solution = -23;
 
   Conformation conformation;
   count = 0;
 
-  //srand((unsigned) time(NULL));
   while (1)
   {
+    srand((unsigned) time(NULL));
     ++count;
     t0 = clock();
-    conformation = aco_run(s8, s8_len, aco_config);
+    conformation = aco_run(s5, s5_len, aco_config);
     tempo = (clock() - t0)/(double)CLOCKS_PER_SEC;
     printf("Tempo(s): %f; Energia: %d; Nr. exe: %d;\n", tempo, conformation.energy, count);
   }
