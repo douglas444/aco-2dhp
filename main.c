@@ -57,7 +57,9 @@ int main()
   aco_config.persistence = 0.8;
   aco_config.iterations = 500;
   aco_config.population = 1500;
-  aco_config.best_known_solution = -23;
+  aco_config.best_known_solution = -14;
+  aco_config.local_search = WITHOUT_LOCAL_SEARCH;
+  aco_config.unfeasible_conformation_handler = PARTIAL_COPY;
 
   Conformation conformation;
   count = 0;
@@ -67,7 +69,7 @@ int main()
     srand((unsigned) time(NULL));
     ++count;
     t0 = clock();
-    conformation = aco_run(s5, s5_len, aco_config);
+    conformation = aco_run(s4, s4_len, aco_config);
     tempo = (clock() - t0)/(double)CLOCKS_PER_SEC;
     printf("Tempo(s): %f; Energia: %d; Nr. exe: %d;\n", tempo, conformation.energy, count);
   }

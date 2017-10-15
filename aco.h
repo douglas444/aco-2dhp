@@ -1,19 +1,34 @@
 typedef struct coord
 {
-    int x;
-    int y;
-
+  int x;
+  int y;
 } Coord;
+
+typedef enum local_search
+{
+  WITHOUT_LOCAL_SEARCH = 0,
+  PULL_MOVE = 1
+} Local_search;
+
+typedef enum unfeasible_conformation_handler
+{
+  PARTIAL_COPY = 1,
+  BLOCKED_POSITIONS = 2
+} Unfeasible_conformation_handler;
 
 typedef struct aco_config
 {
   int population;
   int iterations;
   int best_known_solution;
+
   double alpha;
   double beta;
   double persistence;
   double ini_pheromone;
+
+  Local_search local_search;
+  Unfeasible_conformation_handler unfeasible_conformation_handler;
 
 } Aco_config;
 
@@ -31,7 +46,6 @@ typedef struct conformation
   int energy;
   Coord *positions;
   Direction *directions;
-
 } Conformation;
 
 
