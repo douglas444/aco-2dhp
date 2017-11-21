@@ -10,7 +10,7 @@ typedef enum local_search
   PULL_MOVE = 1
 } Local_search;
 
-typedef enum unfeasible_conformation_handler
+typedef enum unfeasible_handler
 {
   PARTIAL_COPY = 1,
   BLOCKED_POSITIONS = 2
@@ -20,7 +20,6 @@ typedef struct aco_config
 {
   int population;
   int iterations;
-  int best_known_solution;
 
   double alpha;
   double beta;
@@ -34,9 +33,9 @@ typedef struct aco_config
 
 typedef enum direction
 {
-    LEFT = 0,
-    RIGHT = 1,
-    STRAIGHT = 2
+  LEFT = 0,
+  RIGHT = 1,
+  STRAIGHT = 2
 } Direction;
 
 typedef struct conformation

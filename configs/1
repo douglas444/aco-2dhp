@@ -1,0 +1,9 @@
+<sequence>HPHPPHHPHPPHPHHPPHPH</sequence>
+<alpha>1</alpha>
+<beta>2</beta>
+<initial-pheromone>0.333333333333333333</initial-pheromone>
+<persistence>0.8</persistence>
+<population>200</population>
+<iterations>500</iterations>
+<local-search>PULL_MOVE</local-search>
+<unfeasible-conformation-handler>PARTIAL_COPY</unfeasible-conformation-handler>

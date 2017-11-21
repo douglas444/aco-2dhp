@@ -11,6 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="input output" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
@@ -20,6 +21,7 @@
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="input output" />
 				<Compiler>
 					<Add option="-O2" />
 				</Compiler>
@@ -35,6 +37,11 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="aco.h" />
+		<Unit filename="file_reader.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="file_reader.h" />
+		<Unit filename="input" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
