@@ -5,247 +5,73 @@
 #include "aco.h"
 
 
-typedef struct pull_move_config
+
+enum direction {
+    LEFT = 0,
+    RIGHT = 1,
+    STRAIGHT = 2
+};
+
+enum polarity {
+    P = 0,
+    H = 1
+};
+
+enum pm_type {
+    ORIGINAL = 0,
+    INVERSE = 1
+};
+
+struct coord
 {
-    int nr_seq;
-    Coord curr;
-    Coord prev;
-    Coord next;
-    Coord f;
-    Coord c;
+    int x;
+    int y;
+};
 
-} Pull_move_config;
-
-int       calculate_absolute_heuristic_value   (int **lattice, int nr_seq, Coord pos, int *seq);
-int       random_select                        (double *probabilities, int len);
-int       construct_conform                    (int *seq, int seq_len, Conformation solution, Aco_config aco_config, double **pheromone, int **lattice, int *best_partial_indexes, int ant_index, Conformation *ants_conformation, Coord *blocked_positons, int num_blocked_positions);
-int       calculate_relative_heuristic_value   (int **lattice, int nr_seq, Coord pos, int *seq);
-int       coords_distance                      (Coord c1, Coord c2);
-void      pheromone_deposit                    (double **pheromone, Conformation conform, int seq_len, int best_energy);
-void      pheromone_evaporation                (double **pheromone, int seq_len, double evaporation_rate);
-void      initialize_conform                   (Conformation *c, int seq_len);
-void      destroy_conform                      (Conformation c);
-void*     memory_allocation                    (int mem_size);
-int       generate_pull_move_configs           (int nr_seq, int **lattice, Coord *ant_positions, Pull_move_config *configs, int config_index, int seq_len);
-int       apply_pull_move                      (Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions);
-int       apply_pull_move_inverse              (Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions);
-int       calculate_best_pull_move             (int *seq, int seq_len, Conformation ant_conformation,int **lattice, Conformation best_conformation, Conformation config_conformation, Pull_move_config *configs, Pull_move_config *configs_inverse);
-Coord     calculate_move_by_direction          (Coord prev_move, Direction curr_direction);
-Coord     subtract_coord                       (Coord c1, Coord c2);
-Direction calculate_direction_by_move          (Coord prev_move, Coord curr_move);
-Direction calculate_absolute_direction_by_move (Coord move);
-
-/*********************************************************************************************************************/
-
-
-Conformation aco_run(int *seq, int seq_len, Aco_config aco_config)
+struct ant
 {
+    int energy;
+    int *energy_by_edge;
+    struct coord *positions;
+};
 
-    srand((unsigned) time(NULL));
+struct pm_config
+{
+    int amino_acid_index;
+    struct coord curr;
+    struct coord prev;
+    struct coord next;
+    struct coord f;
+    struct coord c;
+    enum pm_type pm_type;
 
-    /**VARIABLES DECLARATIONS*/
+};
 
-    int i;
-    int j;
-    int k;
-    int num_blocked_positions;
-    int iteration_best_energy;
-    int iteration_best_index;
-    int* best_partials_indexes;
-    int** lattice;
-    double** pheromone;
-    Conformation* ants_conformation;
-    Conformation best_conformation;
-    Coord *blocked_positons;
+struct candidate
+{
+    int heuristic;
+    struct coord position;
+    struct coord move;
 
-    struct
-    {
-        /*Used only in calculate_best_pull_move function,
-        but defined here to economize memory_allocation calls*/
-        Conformation best_conformation;
-        Conformation config_conformation;
-        Pull_move_config* configs;
-        Pull_move_config* configs_inverse;
-
-    } pull_move_vars;
+};
 
 
-    /**MEMORY ALLOCATIONS AND VARIABLES INITIALIZATIONS*/
+typedef enum direction Direction;
+typedef enum polarity Polarity;
+typedef enum pm_type PM_type;
+typedef struct coord Coord;
+typedef struct ant Ant;
+typedef struct pm_config PM_config;
+typedef struct candidate Candidate;
+typedef struct lattice Lattice;
 
-    best_partials_indexes = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
-    lattice = (int**) memory_allocation(sizeof(int*) * (2 * seq_len + 1));
-    pheromone = (double**) memory_allocation(sizeof(double*) * seq_len);
-    ants_conformation = (Conformation*) memory_allocation(sizeof(Conformation) * aco_config.population);
-    pull_move_vars.configs = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 * (seq_len - 2));
-    pull_move_vars.configs_inverse = (Pull_move_config*) memory_allocation(sizeof(Pull_move_config) * 2 * (seq_len - 2));
-    blocked_positons = (Coord*) memory_allocation(sizeof(Coord) * (2 * seq_len + 1) * (2 * seq_len + 1));
-
-    initialize_conform(&pull_move_vars.best_conformation, seq_len);
-    initialize_conform(&pull_move_vars.config_conformation, seq_len);
-    initialize_conform(&best_conformation, seq_len);
-
-    for (i = 0; i < seq_len; ++i)
-    {
-        pheromone[i] = (double*) memory_allocation(sizeof(double) * 3);
-        if (i < seq_len - 1)
-        {
-            best_partials_indexes[i] = -1;
-        }
-        for (j = 0; j < 3; ++j)
-        {
-            pheromone[i][j] = aco_config.ini_pheromone;
-        }
-    }
-
-    for (i = 0; i < 2 * seq_len + 1; ++i)
-    {
-        lattice[i] = (int*) memory_allocation(sizeof(int) * (2 * seq_len + 1));
-        for (j = 0; j < 2 * seq_len + 1; ++j)
-        {
-            lattice[i][j] = -1;
-        }
-    }
-
-    for (i = 0; i < aco_config.population; ++i)
-    {
-        initialize_conform(&ants_conformation[i], seq_len);
-    }
-
-    best_conformation.energy = 0;
-
-
-    /**ALGORITHM BEGIN*/
-
-    for (i = 0; i < aco_config.iterations; ++i)
-    {
-
-        for (j = 0; j < aco_config.population; ++j)
-        {
-            num_blocked_positions = 0;
-
-            /*Constructs ant conformation*/
-            ants_conformation[j].energy = construct_conform(seq,
-                                          seq_len,
-                                          ants_conformation[j],
-                                          aco_config,
-                                          pheromone,
-                                          lattice,
-                                          best_partials_indexes,
-                                          j,
-                                          ants_conformation,
-                                          blocked_positons,
-                                          num_blocked_positions);
-            /*Clean lattice*/
-
-            for (k = 0; k < num_blocked_positions; ++k)
-            {
-                lattice[blocked_positons[k].x][blocked_positons[k].y] = -1;
-            }
-
-            for (k = 0; k < seq_len; ++k)
-            {
-                lattice[ants_conformation[j].positions[k].x][ants_conformation[j].positions[k].y] = -1;
-            }
-
-        }
-
-        for (j = 0; j < seq_len - 1; ++j)
-        {
-            best_partials_indexes[j] = -1;
-        }
-
-        /**LOCAL SEARCH AND SELECTION OF BEST ANT SOLUTION*/
-
-        iteration_best_index = 0;
-        iteration_best_energy = 0;
-        for (j = 0; j < aco_config.population; ++j)
-        {
-
-            switch (aco_config.local_search)
-            {
-            case WITHOUT_LOCAL_SEARCH:
-                break;
-
-            case PULL_MOVE:
-                ants_conformation[j].energy = calculate_best_pull_move(seq, seq_len, ants_conformation[j], lattice,
-                                              pull_move_vars.best_conformation,
-                                              pull_move_vars.config_conformation,
-                                              pull_move_vars.configs,
-                                              pull_move_vars.configs_inverse);
-                break;
-
-            default:
-                break;
-            }
-
-            if (ants_conformation[j].energy < iteration_best_energy)
-            {
-                iteration_best_index = j;
-                iteration_best_energy = ants_conformation[j].energy;
-            }
-
-        }
-
-        /*Update best iteration conformation*/
-        if (iteration_best_energy < best_conformation.energy)
-        {
-            best_conformation.energy = ants_conformation[iteration_best_index].energy;
-            for (j = 0; j < seq_len; ++j)
-            {
-                best_conformation.positions[j] = ants_conformation[iteration_best_index].positions[j];
-                if (j < seq_len - 1)
-                {
-                    best_conformation.directions[j] =  ants_conformation[iteration_best_index].directions[j];
-                }
-            }
-        }
-
-        /**PHEROMONE UPDATE*/
-
-        pheromone_evaporation(pheromone, seq_len, aco_config.persistence);
-
-        for (j = 0; j < aco_config.population; ++j)
-        {
-            pheromone_deposit(pheromone, ants_conformation[j], seq_len, best_conformation.energy);
-        }
-    }
-
-    /**END OF ALGORITHM*/
-
-    /**FREE MEMORY*/
-
-    for (i = 0; i < seq_len; ++i)
-    {
-        free(pheromone[i]);
-    }
-    for (i = 0; i < aco_config.population; ++i)
-    {
-        destroy_conform(ants_conformation[i]);
-    }
-    for (i = 0; i < 2 * seq_len + 1; ++i)
-    {
-        free(lattice[i]);
-    }
-
-    free(blocked_positons);
-    free(best_partials_indexes);
-    free(lattice);
-    free(pheromone);
-    free(ants_conformation);
-    destroy_conform(pull_move_vars.best_conformation);
-    destroy_conform(pull_move_vars.config_conformation);
-    free(pull_move_vars.configs);
-    free(pull_move_vars.configs_inverse);
-
-
-    return best_conformation;
-}
-
-
-/*********************************************************************************************************************/
 
 
 void* memory_allocation(int mem_size)
+/* ====================================
+ * Allocates memory safely
+ * ====================================
+ */
 {
     void *mem_pos = (void*) malloc(mem_size);
 
@@ -260,462 +86,149 @@ void* memory_allocation(int mem_size)
     }
 }
 
-void initialize_conform(Conformation *c, int seq_len)
+
+
+void initialize_ant(Ant *ant, int sequence_len)
+
+/* ====================================
+ * Initializes ant
+ * ====================================
+ */
 {
-    c->energy_by_link = (int*) memory_allocation(sizeof(int) * (seq_len - 1));
-    c->positions = (Coord*) memory_allocation(sizeof(Coord) * seq_len);
-    c->directions = (Direction*) memory_allocation(sizeof(Direction) * (seq_len - 1));
-    c->length = seq_len;
+    ant->energy_by_edge = (int*) memory_allocation(sizeof(int) * (sequence_len - 1));
+    ant->positions = (Coord*) memory_allocation(sizeof(Coord) * sequence_len);
 }
 
-void destroy_conform(Conformation c)
+
+
+void destroy_ant(Ant ant)
+/* ====================================
+ * Releases ant
+ * ====================================
+ */
 {
-    free(c.energy_by_link);
-    free(c.positions);
-    free(c.directions);
+    free(ant.energy_by_edge);
+    free(ant.positions);
 }
 
-Direction calculate_direction_by_move(Coord prev_move, Coord curr_move)
-{
 
-    if (prev_move.x == curr_move.x && prev_move.y == curr_move.y)
-    {
-        return STRAIGHT;
-    }
-    else if (prev_move.y == 0)
-    {
-        if (curr_move.y == prev_move.x)
-        {
-            return LEFT;
-        }
-        else if (abs(curr_move.y) == abs(prev_move.x))
-        {
-            return RIGHT;
-        }
-        else
-        {
-            printf("Error in function calculate_direction_by_move: Invalid values for parameters\n");
-            exit(1);
-        }
-    }
-    else
-    {
-        if (curr_move.x == prev_move.y)
-        {
-            return RIGHT;
-        }
-        else if (abs(curr_move.x) == abs(prev_move.y))
-        {
-            return LEFT;
-        }
-        else
-        {
-            printf("Error in function calculate_direction_by_move: Invalid values for parameters\n");
-            exit(1);
-        }
-    }
-}
 
-Coord calculate_move_by_direction(Coord prev_move, Direction curr_direction)
-{
-    Coord move;
-
-    if (prev_move.x == 1)
-    {
-        switch (curr_direction)
-        {
-        case LEFT:
-            move.x = 0;
-            move.y = 1;
-            break;
-        case RIGHT:
-            move.x = 0;
-            move.y = -1;
-            break;
-        case STRAIGHT:
-            move.x = 1;
-            move.y = 0;
-            break;
-        default:
-            printf("Error in function calculate_move_by_direction: Invalid value for parameter curr_direction\n");
-            exit(1);
-            break;
-        }
-    }
-    else if (prev_move.x == -1)
-    {
-        switch (curr_direction)
-        {
-        case LEFT:
-            move.x = 0;
-            move.y = -1;
-            break;
-        case RIGHT:
-            move.x = 0;
-            move.y = 1;
-            break;
-        case STRAIGHT:
-            move.x = -1;
-            move.y = 0;
-            break;
-        default:
-            printf("Error in function calculate_move_by_direction: Invalid value for parameter curr_direction\n");
-            exit(1);
-            break;
-        }
-    }
-    else if (prev_move.y == -1)
-    {
-        switch (curr_direction)
-        {
-        case LEFT:
-            move.x = 1;
-            move.y = 0;
-            break;
-        case RIGHT:
-            move.x = -1;
-            move.y = 0;
-            break;
-        case STRAIGHT:
-            move.x = 0;
-            move.y = -1;
-            break;
-        default:
-            printf("Error in function calculate_move_by_direction: Invalid value for parameter curr_direction\n");
-            exit(1);
-            break;
-        }
-    }
-    else if (prev_move.y == 1)
-    {
-        switch (curr_direction)
-        {
-        case LEFT:
-            move.x = -1;
-            move.y = 0;
-            break;
-        case RIGHT:
-            move.x = 1;
-            move.y = 0;
-            break;
-        case STRAIGHT:
-            move.x = 0;
-            move.y = 1;
-            break;
-        default:
-            printf("Error in function calculate_move_by_direction: Invalid value for parameter curr_direction\n");
-            exit(1);
-            break;
-        }
-    }
-    else
-    {
-        printf("Error in function calculate_move_by_direction: Invalid value for parameter prev_move\n");
-        exit(1);
-    }
-
-    return move;
-}
-
-int calculate_absolute_heuristic_value(int **lattice, int nr_seq, Coord pos, int *seq)
-{
-    int heuristic_value = 0;
-    int right_neighbor = lattice[pos.x + 1][pos.y];
-    int left_neighbor = lattice[pos.x - 1][pos.y];
-    int down_neighbor = lattice[pos.x][pos.y - 1];
-    int up_neighbor = lattice[pos.x][pos.y + 1];
-
-    if (right_neighbor >= 0 && abs(right_neighbor - nr_seq) > 1 && seq[right_neighbor] == 1)
-    {
-        ++heuristic_value;
-    }
-    if (left_neighbor >= 0 && abs(left_neighbor - nr_seq) > 1 && seq[left_neighbor] == 1)
-    {
-        ++heuristic_value;
-    }
-    if (up_neighbor >= 0 && abs(up_neighbor - nr_seq) > 1 && seq[up_neighbor] == 1)
-    {
-        ++heuristic_value;
-    }
-    if (down_neighbor >= 0 && abs(down_neighbor - nr_seq) > 1 && seq[down_neighbor] == 1)
-    {
-        ++heuristic_value;
-    }
-
-    return heuristic_value;
-}
-
-int random_select(double *probabilities, int len)
-{
-    int i = 0;
-    int result = -1;
-    double cumulative_probability = 0;
-    double r = ((double)rand()/RAND_MAX);
-
-    while(result == -1)
-    {
-        cumulative_probability += probabilities[i];
-        if(r <= cumulative_probability || i == len - 1)
-        {
-            result = i;
-        }
-        ++i;
-    }
-    return result;
-}
-
-void pheromone_deposit(double **pheromone, Conformation conformation, int seq_len, int best_energy)
+void variables_initialization
+(
+    ACO_config aco_config,
+    PM_config **pm_configs,
+    Ant *best_pm_ant,
+    Ant *pm_ant,
+    Ant **ants,
+    Ant *best_ant,
+    int sequence_len,
+    int **best_ant_by_edge,
+    int ***lattice,
+    double ***pheromone,
+    Solution *solution
+)
+/* =========================================
+ * Initializes all aco.c exclusive variables
+ * =========================================
+ */
 {
     int i;
     int j;
 
-    for (i = 0; i < seq_len - 1; ++i)
+    *pm_configs = (PM_config*) memory_allocation(sizeof(PM_config) * 4 * (sequence_len - 2));
+
+    initialize_ant(best_pm_ant, sequence_len);
+    initialize_ant(pm_ant, sequence_len);
+    initialize_ant(best_ant, sequence_len);
+    solution->directions = (char*) memory_allocation(sizeof(char) * (sequence_len - 1));
+
+    *pheromone = (double**) memory_allocation(sizeof(double*) * sequence_len);
+    for (i = 0; i < sequence_len; ++i)
     {
+        (*pheromone)[i] = (double*) memory_allocation(sizeof(double) * 3);
         for (j = 0; j < 3; ++j)
         {
-            if (conformation.directions[i] == j && best_energy > 0)
-            {
-                pheromone[i][j] += (double) conformation.energy / pow(best_energy, 3);
-                break;
-            }
+            (*pheromone)[i][j] = aco_config.ini_pheromone;
         }
+    }
+
+    *best_ant_by_edge = (int*) memory_allocation(sizeof(int) * (sequence_len - 1));
+    for (i = 0; i < sequence_len - 1; ++i)
+    {
+        (*best_ant_by_edge)[i] = -1;
+    }
+
+    *lattice = (int**) memory_allocation(sizeof(int*) * (2 * sequence_len + 1));
+    for (i = 0; i < 2 * sequence_len + 1; ++i)
+    {
+        (*lattice)[i] = (int*) memory_allocation(sizeof(int) * (2 * sequence_len + 1));
+        for (j = 0; j < 2 * sequence_len + 1; ++j)
+        {
+            (*lattice)[i][j] = -1;
+        }
+    }
+
+    *ants = (Ant*) memory_allocation(sizeof(Ant) * aco_config.population);
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        initialize_ant(&((*ants)[i]), sequence_len);
     }
 }
 
-void pheromone_evaporation(double **pheromone, int seq_len, double evaporation_rate)
+
+
+void free_variables
+(
+    ACO_config aco_config,
+    int sequence_len,
+    int **lattice,
+    int *best_ant_by_edge,
+    Ant pm_ant,
+    Ant pm_best_ant,
+    Ant *ants,
+    double **pheromone,
+    PM_config *pm_configs
+)
+/* ====================================
+ * Releases all aco.c exclusive variables
+ * ====================================
+ */
 {
     int i;
-    int j;
 
-    for (i = 0; i < seq_len - 1; ++i)
+    for (i = 0; i < sequence_len; ++i)
     {
-        for (j = 0; j < 3; ++j)
-        {
-            pheromone[i][j] *= evaporation_rate;
-        }
+        free(pheromone[i]);
     }
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        destroy_ant(ants[i]);
+    }
+    for (i = 0; i < 2 * sequence_len + 1; ++i)
+    {
+        free(lattice[i]);
+    }
+
+    free(best_ant_by_edge);
+    free(lattice);
+    free(pheromone);
+    free(ants);
+    destroy_ant(pm_best_ant);
+    destroy_ant(pm_ant);
+    free(pm_configs);
 }
 
-int construct_conform(int *seq, int seq_len, Conformation solution, Aco_config aco_config, double **pheromone, int **lattice, int *best_partial_indexes, int ant_index, Conformation *ants_conformation, Coord *blocked_positions, int num_blocked_positions)
-{
-    /**DECLARATIONS*/
-
-    int i;
-    int j;
-    int num_candidates;
-    int selected_candidate;
-    double sum_probabilities;
-    double probabilities[3];
-    Coord curr_position;
-    Coord move;
-    Coord candidate_move;
-
-    struct
-    {
-        int heuristic;
-        Coord position;
-        Coord move;
-        Direction direction;
-    } candidates[3];
-
-    solution.energy = 0;
-    solution.energy_by_link[0] = 0;
 
 
-    /**DEFINES FIRST LINK*/
-
-    /*Define first amino-acid position*/
-    curr_position.x = seq_len;
-    curr_position.y = seq_len;
-    lattice[curr_position.x][curr_position.y] = 0;
-    solution.positions[0] = curr_position;
-
-    /*Define second amino-acid position*/
-    move.x = 0;
-    move.y = 1;
-    solution.directions[0] = STRAIGHT;
-    curr_position.x += move.x;
-    curr_position.y += move.y;
-    lattice[curr_position.x][curr_position.y] = 1;
-    solution.positions[1] = curr_position;
-
-
-    /**CONSTRUCTOR LOOP*/
-
-    /*For each amino-acid link, except the first*/
-    for (i = 1; i < seq_len - 1; ++i)
-    {
-        sum_probabilities = 0;
-        num_candidates = 0;
-
-
-        /**DEFINES CANDIDATES DIRECTION*/
-
-        /*For each direction*/
-        for (j = 0; j < 3; ++j)
-        {
-            candidate_move = calculate_move_by_direction(move, j);
-
-            /*If the next position in this direction is not occupied, turns current direction into a candidate*/
-            if (lattice[curr_position.x + candidate_move.x][curr_position.y + candidate_move.y] == -1)
-            {
-                candidates[num_candidates].move = candidate_move;
-                candidates[num_candidates].direction = j;
-                candidates[num_candidates].position.x = curr_position.x + candidates[num_candidates].move.x;
-                candidates[num_candidates].position.y = curr_position.y + candidates[num_candidates].move.y;
-
-                if (seq[i + 1] == 1)
-                {
-                    candidates[num_candidates].heuristic =
-                        calculate_absolute_heuristic_value(lattice, i + 1, candidates[num_candidates].position, seq);
-                }
-                else
-                {
-                    candidates[num_candidates].heuristic = 0;
-                }
-
-                probabilities[num_candidates] =
-                    pow(pheromone[i][j], aco_config.alpha) *
-                    pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
-
-                sum_probabilities += probabilities[num_candidates];
-                ++num_candidates;
-            }
-
-        }
-
-        /*calculate probabilities*/
-        for (j = 0; j < num_candidates; ++j)
-        {
-            probabilities[j] = probabilities[j]/sum_probabilities;
-        }
-
-
-        /**SELECTS A CANDIDATE*/
-
-        if (num_candidates == 0)
-        {
-            selected_candidate = -1;
-        }
-        else if (sum_probabilities == 0)
-        {
-            selected_candidate = rand() % num_candidates;
-        }
-        else if (num_candidates > 1)
-        {
-            selected_candidate = random_select(probabilities, num_candidates);
-        }
-        else if (num_candidates == 1)
-        {
-            selected_candidate = 0;
-        }
-
-
-        /**UPDATE CONFORMATION*/
-
-        if (selected_candidate != -1)
-        {
-            move = candidates[selected_candidate].move;
-            curr_position = candidates[selected_candidate].position;
-            solution.directions[i] = candidates[selected_candidate].direction;
-            solution.energy_by_link[i] = solution.energy;
-            solution.energy -= candidates[selected_candidate].heuristic;
-            solution.positions[i + 1] = curr_position;
-            lattice[curr_position.x][curr_position.y] = i + 1;
-
-        }
-        else
-        {
-            /**WHEN IS IMPOSSIBLE CONTINUE THE FOLD PROCESS*/
-
-            switch (aco_config.unfeasible_conformation_handler)
-            {
-            case BLOCKED_POSITIONS:
-
-                ++num_blocked_positions;
-                lattice[curr_position.x][curr_position.y] = -2;
-                if (seq[i - 1] == 1)
-                {
-                    solution.energy += calculate_absolute_heuristic_value(lattice, i - 1, curr_position, seq);
-                }
-                curr_position = solution.positions[i - 1];
-                move = subtract_coord(curr_position, solution.positions[i - 2]);
-                i -= 2;
-                break;
-
-            case PARTIAL_COPY:
-
-                /*If theres no another conformation to copy*/
-                if (best_partial_indexes[i] == -1)
-                {
-                    /*Cleans lattice*/
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[solution.positions[j].x][solution.positions[j].y] = -1;
-                    }
-
-                    i = 0;
-                    solution.energy = 0;
-
-                    /*Defines first link*/
-                    curr_position.x = seq_len;
-                    curr_position.y = seq_len;
-                    lattice[curr_position.x][curr_position.y] = 0;
-                    solution.directions[0] = STRAIGHT;
-                    solution.energy_by_link[0] = 0;
-                    solution.positions[0] = curr_position;
-                    move.x = 0;
-                    move.y = 1;
-                    curr_position.x += move.x;
-                    curr_position.y += move.y;
-                    lattice[curr_position.x][curr_position.y] = 1;
-                    solution.positions[1] = curr_position;
-                }
-                else
-                {
-                    /*Cleans lattice until i th amino-acid*/
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[solution.positions[j].x][solution.positions[j].y] = -1;
-                    }
-
-                    /*Copy best_ant_solution until i th amino-acid*/
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[ants_conformation[best_partial_indexes[i]].positions[j].x][ants_conformation[best_partial_indexes[i]].positions[j].y] = j;
-                        solution.positions[j] = ants_conformation[best_partial_indexes[i]].positions[j];
-                        if (j != i)
-                        {
-                            solution.directions[j] = ants_conformation[best_partial_indexes[i]].directions[j];
-                            solution.energy_by_link[j] = ants_conformation[best_partial_indexes[i]].energy_by_link[j];
-                        }
-                    }
-                    curr_position = ants_conformation[best_partial_indexes[i]].positions[i];
-                    solution.energy = ants_conformation[best_partial_indexes[i]].energy_by_link[i];
-                    move.x = curr_position.x - ants_conformation[best_partial_indexes[i]].positions[i - 1].x;
-                    move.y = curr_position.y - ants_conformation[best_partial_indexes[i]].positions[i - 1].y;
-                    --i;
-                }
-                break;
-
-            default:
-                break;
-            }
-        }
-    }
-
-    for (i = 0; i < seq_len - 1; ++i)
-    {
-        if (best_partial_indexes[i] == -1 || ants_conformation[best_partial_indexes[i]].energy_by_link[i] > solution.energy_by_link[i])
-        {
-            best_partial_indexes[i] = ant_index;
-        }
-    }
-
-    return solution.energy;
-}
-
-Coord subtract_coord(Coord c1, Coord c2)
+Coord subtract_coord
+(
+    Coord c1,
+    Coord c2
+)
+/* =======================================================
+ * Calculates the difference between two given coordinates
+ * =======================================================
+ */
 {
     Coord c3;
 
@@ -725,13 +238,25 @@ Coord subtract_coord(Coord c1, Coord c2)
     return c3;
 }
 
+
+
 int coords_distance(Coord c1, Coord c2)
+/* =====================================================
+ * Calculates the distance between two given coordinates
+ * =====================================================
+ */
 {
     return sqrt(pow(c1.x - c2.x, 2) + pow(c1.y - c2.y, 2));
 
 }
 
-Direction calculate_absolute_direction_by_move(Coord move)
+
+
+int calculate_absolute_direction_by_move(Coord move)
+/* =====================================
+ * Calculates absolute direction by move
+ * =====================================
+ */
 {
     if (move.x == 0)
     {
@@ -768,28 +293,86 @@ Direction calculate_absolute_direction_by_move(Coord move)
     }
 }
 
-int calculate_relative_heuristic_value(int **lattice, int nr_seq, Coord pos, int *seq)
+
+
+int calculate_direction_by_move(Coord prev_move, Coord move)
+/* ===========================================================
+ * Calculates relative direction between two consecutive moves
+ * ===========================================================
+ */
 {
-    int heuristic_value = 0, right_neighbor, left_neighbor, down_neighbor, up_neighbor;
 
-    right_neighbor = lattice[pos.x + 1][pos.y];
-    left_neighbor = lattice[pos.x - 1][pos.y];
-    down_neighbor = lattice[pos.x][pos.y - 1];
-    up_neighbor = lattice[pos.x][pos.y + 1];
+    if (prev_move.x == move.x && prev_move.y == move.y)
+    {
+        return STRAIGHT;
+    }
+    else if (prev_move.y == 0)
+    {
+        if (move.y == prev_move.x)
+        {
+            return LEFT;
+        }
+        else if (abs(move.y) == abs(prev_move.x))
+        {
+            return RIGHT;
+        }
+        else
+        {
+            printf("Error in function calculate_direction_by_move: Invalid values for parameters\n");
+            exit(1);
+        }
+    }
+    else
+    {
+        if (move.x == prev_move.y)
+        {
+            return RIGHT;
+        }
+        else if (abs(move.x) == abs(prev_move.y))
+        {
+            return LEFT;
+        }
+        else
+        {
+            printf("Error in function calculate_direction_by_move: Invalid values for parameters\n");
+            exit(1);
+        }
+    }
+}
 
-    if (right_neighbor >= 0 && right_neighbor < nr_seq - 1 && seq[right_neighbor] == 1)
+
+
+int calculate_absolute_heuristic_value
+(
+    int **lattice,
+    int amino_acid_index,
+    Coord pos,
+    int *sequence
+)
+/* =================================================================================
+ * Calculates the number of H-H contacts if a H amino-acid occupy the given position
+ * =================================================================================
+ */
+{
+    int heuristic_value = 0;
+    int right_neighbor = lattice[pos.x + 1][pos.y];
+    int left_neighbor = lattice[pos.x - 1][pos.y];
+    int down_neighbor = lattice[pos.x][pos.y - 1];
+    int up_neighbor = lattice[pos.x][pos.y + 1];
+
+    if (right_neighbor >= 0 && abs(right_neighbor - amino_acid_index) > 1 && sequence[right_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (left_neighbor >= 0 && left_neighbor < nr_seq - 1 && seq[left_neighbor] == 1)
+    if (left_neighbor >= 0 && abs(left_neighbor - amino_acid_index) > 1 && sequence[left_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (up_neighbor >= 0 && up_neighbor < nr_seq - 1 && seq[up_neighbor] == 1)
+    if (up_neighbor >= 0 && abs(up_neighbor - amino_acid_index) > 1 && sequence[up_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (down_neighbor >= 0 && down_neighbor < nr_seq - 1 && seq[down_neighbor] == 1)
+    if (down_neighbor >= 0 && abs(down_neighbor - amino_acid_index) > 1 && sequence[down_neighbor] == H)
     {
         ++heuristic_value;
     }
@@ -797,16 +380,250 @@ int calculate_relative_heuristic_value(int **lattice, int nr_seq, Coord pos, int
     return heuristic_value;
 }
 
-int generate_pull_move_configs(int nr_seq, int **lattice, Coord *ant_positions, Pull_move_config *configs, int config_index, int seq_len)
+
+
+int random_select(double *probabilities, int len)
+/* =====================================================================
+ * Randomly chooses a integer between 0 and len with given probabilities
+ * =====================================================================
+ */
+{
+    int i = 0;
+    int result = -1;
+    double cumulative_probability = 0;
+    double r = ((double)rand()/RAND_MAX);
+
+    while(result == -1)
+    {
+        cumulative_probability += probabilities[i];
+        if(r <= cumulative_probability || i == len - 1)
+        {
+            result = i;
+        }
+        ++i;
+    }
+    return result;
+}
+
+
+
+Coord create_new_coord(int x, int y)
+/* ===========================================================
+ * Returns a new variables of type Coord with the given values
+ * ===========================================================
+ */
+{
+    Coord coord;
+    coord.x = x;
+    coord.y = y;
+    return coord;
+}
+
+
+
+void pheromone_deposit
+(
+    double **pheromone,
+    Ant ant,
+    int sequence_len,
+    int best_energy
+)
+/* ==============================
+ * ACO pheromone deposit function
+ * ==============================
+ */
+{
+    int i;
+    Coord move, prev_move;
+    int direction;
+
+    for (i = 0; i < sequence_len - 1; ++i)
+    {
+        move = subtract_coord(ant.positions[i + 1], ant.positions[i]);
+        if (i == 0)
+        {
+            direction = calculate_absolute_direction_by_move(move);
+        }
+        else
+        {
+            direction = calculate_direction_by_move(prev_move, move);
+        }
+
+        if (best_energy != 0)
+        {
+            pheromone[i][direction] += (double) ant.energy / pow(best_energy, 3);
+        }
+        prev_move = move;
+    }
+}
+
+
+
+void pheromone_evaporation
+(
+    double **pheromone,
+    int sequence_len,
+    double persistence
+)
+/* ==================================
+ * ACO pheromone evaporation function
+ * ==================================
+ */
+{
+    int i, j;
+
+    for (i = 0; i < sequence_len - 1; ++i)
+    {
+        for (j = 0; j < 3; ++j)
+        {
+            pheromone[i][j] *= persistence;
+        }
+    }
+}
+
+
+
+Coord straight(Coord prev_move)
+/* =================================================================
+ * Calculates straight move corresponding to the given previous move
+ * =================================================================
+ */
+{
+    Coord move;
+
+    if (prev_move.x == 1)
+    {
+        move.x = 1;
+        move.y = 0;
+    }
+    else if (prev_move.x == -1)
+    {
+        move.x = -1;
+        move.y = 0;
+    }
+    else if (prev_move.y == -1)
+    {
+        move.x = 0;
+        move.y = -1;
+    }
+    else if (prev_move.y == 1)
+    {
+        move.x = 0;
+        move.y = 1;
+    }
+    else
+    {
+        printf("Error in function calculate_move_by_direction: Invalid value for parameter prev_move\n");
+        exit(1);
+    }
+
+    return move;
+}
+
+
+
+Coord left(Coord prev_move)
+/* =============================================================
+ * Calculates left move corresponding to the given previous move
+ * =============================================================
+ */
+{
+    Coord move;
+
+    if (prev_move.x == 1)
+    {
+        move.x = 0;
+        move.y = 1;
+    }
+    else if (prev_move.x == -1)
+    {
+        move.x = 0;
+        move.y = -1;
+    }
+    else if (prev_move.y == -1)
+    {
+        move.x = 1;
+        move.y = 0;
+    }
+    else if (prev_move.y == 1)
+    {
+        move.x = -1;
+        move.y = 0;
+    }
+    else
+    {
+        printf("Error in function calculate_move_by_direction: Invalid value for parameter prev_move\n");
+        exit(1);
+    }
+
+    return move;
+}
+
+
+
+Coord right(Coord prev_move)
+/* ==============================================================
+ * Calculates right move corresponding to the given previous move
+ * ==============================================================
+ */
+{
+    Coord move;
+
+    if (prev_move.x == 1)
+    {
+        move.x = 0;
+        move.y = -1;
+    }
+    else if (prev_move.x == -1)
+    {
+        move.x = 0;
+        move.y = 1;
+    }
+    else if (prev_move.y == -1)
+    {
+        move.x = -1;
+        move.y = 0;
+    }
+    else if (prev_move.y == 1)
+    {
+        move.x = 1;
+        move.y = 0;
+    }
+    else
+    {
+        printf("Error in function calculate_move_by_direction: Invalid value for parameter prev_move\n");
+        exit(1);
+    }
+
+    return move;
+}
+
+
+
+int generate_pull_move_configs
+
+(
+    int amino_acid_index,
+    int **lattice,
+    Coord *ant_positions,
+    PM_config *configs,
+    int config_index,
+    int sequence_len
+)
+/* ====================================
+ * Generates pull-move configurations
+ * ====================================
+ */
 {
     int num_configs;
-    Pull_move_config config;
+    PM_config config;
 
     num_configs = 0;
-    config.curr = ant_positions[nr_seq];
-    config.next = ant_positions[nr_seq + 1];
-    config.prev = ant_positions[nr_seq - 1];
-    config.nr_seq = nr_seq;
+    config.pm_type = ORIGINAL;
+    config.curr = ant_positions[amino_acid_index];
+    config.next = ant_positions[amino_acid_index + 1];
+    config.prev = ant_positions[amino_acid_index - 1];
+    config.amino_acid_index = amino_acid_index;
 
     /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
     if (lattice[config.next.x + 1][config.next.y] == -1 && config.next.x + 1 != config.curr.x &&
@@ -820,13 +637,7 @@ int generate_pull_move_configs(int nr_seq, int **lattice, Coord *ant_positions, 
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
-
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
@@ -845,12 +656,7 @@ int generate_pull_move_configs(int nr_seq, int **lattice, Coord *ant_positions, 
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
@@ -868,12 +674,7 @@ int generate_pull_move_configs(int nr_seq, int **lattice, Coord *ant_positions, 
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
 
             ++config_index;
             ++num_configs;
@@ -893,185 +694,17 @@ int generate_pull_move_configs(int nr_seq, int **lattice, Coord *ant_positions, 
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
     }
 
-    return num_configs;
-}
-
-int apply_pull_move(Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions)
-{
-
-    int i;
-    int temp;
-    int last_modified; /*Modifications in the conformation finalizes in this amino-acid*/
-
-    if (config.c.x == config.prev.x && config.c.y == config.prev.y)
-    {
-        /**WHEN C == PREV: CURRENT <-> F*/
-
-        /*Update energy*/
-        if (seq[config.nr_seq] == 1)
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq, config.curr, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq, config.f, seq);
-        }
-
-        /*Update lattice*/
-        temp = lattice[config.curr.x][config.curr.y];
-        lattice[config.curr.x][config.curr.y] = lattice[config.f.x][config.f.y];
-        lattice[config.f.x][config.f.y] = temp;
-
-        /*Update positions*/
-        conformation.positions[config.nr_seq].x = config.f.x;
-        conformation.positions[config.nr_seq].y = config.f.y;
-        config.curr.x =  conformation.positions[config.nr_seq].x;
-        config.curr.y =  conformation.positions[config.nr_seq].y;
-
-        /*Update directions*/
-        if (config.nr_seq == 1)
-        {
-            Coord subtraction_result = subtract_coord(conformation.positions[1], conformation.positions[0]);
-            conformation.directions[0] = calculate_absolute_direction_by_move(subtraction_result);
-        }
-        else
-        {
-            Coord subtraction1_result = subtract_coord(config.prev, conformation.positions[config.nr_seq - 2]);
-            Coord subtraction2_result = subtract_coord(config.curr, config.prev);
-            conformation.directions[config.nr_seq - 1] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
-        }
-
-        Coord subtraction1_result = subtract_coord(config.curr, config.prev);
-        Coord subtraction2_result = subtract_coord(config.next, config.curr);
-        conformation.directions[config.nr_seq] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
-        last_modified = config.nr_seq;
-    }
-    else
-    {
-
-        /**CASO EM QUE C == PREVIOUS. PREVIOUS <-> C*/
-
-        /*Update energy*/
-        if (seq[config.nr_seq - 1] == 1)
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq - 1, config.prev, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq - 1, config.c, seq);
-        }
-
-        /*Update lattice*/
-        temp = lattice[config.prev.x][config.prev.y];
-        lattice[config.prev.x][config.prev.y] = lattice[config.c.x][config.c.y];
-        lattice[config.c.x][config.c.y] = temp;
-
-        /*Update positions*/
-        conformation.positions[config.nr_seq - 1].x = config.c.x;
-        conformation.positions[config.nr_seq - 1].y = config.c.y;
-
-        /**CURRENT <-> F*/
-
-        if (seq[config.nr_seq] == 1)
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq, config.curr, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq, config.f, seq);
-        }
-
-        /*Update lattice*/
-        temp = lattice[config.curr.x][config.curr.y];
-        lattice[config.curr.x][config.curr.y] = lattice[config.f.x][config.f.y];
-        lattice[config.f.x][config.f.y] = temp;
-
-        /*Update positions*/
-        conformation.positions[config.nr_seq].x = config.f.x;
-        conformation.positions[config.nr_seq].y = config.f.y;
-
-        i = config.nr_seq - 2; /*Amino-acid that comes before the previous*/
-        last_modified = 0;     /*If all amino-acids before the previous needs be moved, the last modified will be the first*/
-
-        /*Adjusts the conformation until reach a valid configuration*/
-        while (i >= 0)
-        {
-
-            /**I <- CURRENT <- PREVIOUS*/
-
-            /*Update energy*/
-            if (seq[i] == 1)
-            {
-                conformation.energy += calculate_absolute_heuristic_value(lattice, i, conformation.positions[i], seq);
-                conformation.energy -= calculate_absolute_heuristic_value(lattice, i, config.curr, seq);
-            }
-
-            /*Update lattice*/
-            temp = lattice[conformation.positions[i].x][conformation.positions[i].y];
-            lattice[conformation.positions[i].x][conformation.positions[i].y] = lattice[config.curr.x][config.curr.y];
-            lattice[config.curr.x][config.curr.y] = temp;
-
-            /*Update positions*/
-            temp = conformation.positions[i].x;
-            conformation.positions[i].x = config.curr.x;
-            config.curr.x = config.prev.x;
-            config.prev.x = temp;
-            temp = conformation.positions[i].y;
-            conformation.positions[i].y = config.curr.y;
-            config.curr.y = config.prev.y;
-            config.prev.y = temp;
-
-            /*If reach a valid conformation, stop. Then the last modified will be de i th amino-acid*/
-            if (i != 0 && coords_distance(conformation.positions[i], conformation.positions[i - 1]) == 1)
-            {
-                last_modified = i;
-                break;
-            }
-
-            --i;
-        }
-
-        /*Update directions*/
-        if (i == -1)
-        {
-            Coord subtraction_result = subtract_coord(conformation.positions[1], conformation.positions[0]);
-            conformation.directions[0] = calculate_absolute_direction_by_move(subtraction_result);
-            i = last_modified + 1;
-        }
-        while (i < config.nr_seq + 1)
-        {
-            Coord subtraction1_result = subtract_coord(conformation.positions[i], conformation.positions[i - 1]);
-            Coord subtraction2_result = subtract_coord(conformation.positions[i + 1], conformation.positions[i]);
-            conformation.directions[i] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
-            ++i;
-        }
-    }
-
-    /**DEVOLVES LATTICE TO ORIGINAL STATE*/
-    for (i = last_modified; i < config.nr_seq + 1; ++i)
-    {
-        lattice[conformation.positions[i].x][conformation.positions[i].y] = -1;
-    }
-    for (i = last_modified; i < config.nr_seq + 1; ++i)
-    {
-        lattice[ant_positions[i].x][ant_positions[i].y] = i;
-    }
-
-    return conformation.energy;
-}
-
-int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *original_positions, Pull_move_config *configs, int config_index, int seq_len)
-{
-    int num_configs;
-    Pull_move_config config;
-
-    num_configs = 0;
-    config.curr = original_positions[nr_seq];
-    config.next = original_positions[nr_seq - 1];
-    config.prev = original_positions[nr_seq + 1];
-    config.nr_seq = nr_seq;
+    config.pm_type = INVERSE;
+    config.curr = ant_positions[amino_acid_index];
+    config.next = ant_positions[amino_acid_index - 1];
+    config.prev = ant_positions[amino_acid_index + 1];
+    config.amino_acid_index = amino_acid_index;
 
     /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
     if (lattice[config.next.x + 1][config.next.y] == -1 && config.next.x + 1 != config.curr.x &&
@@ -1085,12 +718,7 @@ int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *origina
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
@@ -1108,12 +736,7 @@ int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *origina
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
@@ -1131,12 +754,7 @@ int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *origina
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index] = config;
             ++config_index;
             ++num_configs;
         }
@@ -1154,12 +772,7 @@ int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *origina
         /*If F exists and C is empty or is equals do previous amino-acid*/
         if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
         {
-            configs[config_index].c = config.c;
-            configs[config_index].curr = config.curr;
-            configs[config_index].f = config.f;
-            configs[config_index].next = config.next;
-            configs[config_index].nr_seq = config.nr_seq;
-            configs[config_index].prev = config.prev;
+            configs[config_index]= config;
             ++config_index;
             ++num_configs;
         }
@@ -1168,307 +781,608 @@ int generate_pull_move_configs_inverse(int nr_seq, int **lattice, Coord *origina
     return num_configs;
 }
 
-int apply_pull_move_inverse(Conformation conformation, Pull_move_config config, int *seq, int **lattice, int seq_len, Coord *ant_positions)
+
+
+int change_amino_acid_position
+(
+    int current_energy,
+    int **lattice,
+    int *sequence,
+    int amino_acid_index,
+    Coord src,
+    Coord dest
+)
+/* ===============================================================================
+ * Moves a amino-acid to another position in the lattice, handling with the energy
+ * ===============================================================================
+ */
 {
-    int i;
+
     int temp;
 
-    if (config.c.x == config.prev.x && config.c.y == config.prev.y)
+    if (sequence[amino_acid_index] == H)
     {
-        /**CASO EM QUE C == PREV. CURRENT <-> F*/
+        current_energy += calculate_absolute_heuristic_value(lattice, amino_acid_index, src, sequence);
+        current_energy -= calculate_absolute_heuristic_value(lattice, amino_acid_index, dest, sequence);
+    }
 
-        /*Update energy*/
-        if (seq[config.nr_seq] == 1)
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq, config.curr, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq, config.f, seq);
-        }
+    temp = lattice[src.x][src.y];
+    lattice[src.x][src.y] = lattice[dest.x][dest.y];
+    lattice[dest.x][dest.y] = temp;
 
-        /*Update lattice*/
-        temp = lattice[config.curr.x][config.curr.y];
-        lattice[config.curr.x][config.curr.y] = lattice[config.f.x][config.f.y];
-        lattice[config.f.x][config.f.y] = temp;
+    return current_energy;
+}
 
-        /*Update positions*/
-        conformation.positions[config.nr_seq].x = config.f.x;
-        conformation.positions[config.nr_seq].y = config.f.y;
-        config.curr.x =  conformation.positions[config.nr_seq].x;
-        config.curr.y =  conformation.positions[config.nr_seq].y;
 
-        /*Update directions*/
-        if (config.nr_seq == 1)
-        {
-            Coord subtraction_result = subtract_coord(conformation.positions[1], conformation.positions[0]);
-            conformation.directions[0] = calculate_absolute_direction_by_move(subtraction_result);
-        }
-        else
-        {
-            Coord subtraction1_result = subtract_coord(config.next, conformation.positions[config.nr_seq - 2]);
-            Coord subtraction2_result = subtract_coord(config.curr, config.next);
-            conformation.directions[config.nr_seq - 1] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
-        }
 
-        Coord subtraction1_result = subtract_coord(config.curr, config.next);
-        Coord subtraction2_result = subtract_coord(config.prev, config.curr);
-        conformation.directions[config.nr_seq] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
+int apply_pull_move
+(
+    Ant ant,
+    PM_config config,
+    int *sequence,
+    int **lattice,
+    int sequence_len,
+    Coord *ant_positions
+)
+/* ========================================================
+ * Applies the pull-move configuration to the given protein
+ * ========================================================
+ */
+{
 
+    int i;
+    int last_modified;
+    int previous_index;
+    int before_previous_index;
+    Coord tempCoord;
+
+    if (config.pm_type == ORIGINAL)
+    {
+        previous_index = config.amino_acid_index - 1;
+        before_previous_index = config.amino_acid_index - 2;
+        last_modified = 0;
     }
     else
     {
-        /**CASO EM QUE C != PREVIOUS. PREVIOUS <-> C*/
-
-        /*Update energy*/
-        if (seq[config.nr_seq + 1] == 1)//H
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq + 1, config.prev, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq + 1, config.c, seq);
-        }
-
-        /*Update lattice*/
-        temp = lattice[config.prev.x][config.prev.y];
-        lattice[config.prev.x][config.prev.y] = lattice[config.c.x][config.c.y];
-        lattice[config.c.x][config.c.y] = temp;
-
-        /*Update positions*/
-        conformation.positions[config.nr_seq + 1].x = config.c.x;
-        conformation.positions[config.nr_seq + 1].y = config.c.y;
-
-        /**CURRENT <-> F*/
-
-        if (seq[config.nr_seq] == 1)
-        {
-            conformation.energy += calculate_absolute_heuristic_value(lattice, config.nr_seq, config.curr, seq);
-            conformation.energy -= calculate_absolute_heuristic_value(lattice, config.nr_seq, config.f, seq);
-        }
-
-        /*Update lattice*/
-        temp = lattice[config.curr.x][config.curr.y];
-        lattice[config.curr.x][config.curr.y] = lattice[config.f.x][config.f.y];
-        lattice[config.f.x][config.f.y] = temp;
-
-        /*Update positions*/
-        conformation.positions[config.nr_seq].x = config.f.x;
-        conformation.positions[config.nr_seq].y = config.f.y;
-
-        i = config.nr_seq + 2;/*Amino-acid that comes before the previous*/
-
-        /*Adjusts the conformation until reach a valid configuration*/
-        while (i < seq_len)
-        {
-            /**I <- CURRENT <- PREVIOUS*/
-
-            /*Update energy*/
-            if (seq[i] == 1)
-            {
-                conformation.energy += calculate_absolute_heuristic_value(lattice, i, conformation.positions[i], seq);
-                conformation.energy -= calculate_absolute_heuristic_value(lattice, i, config.curr, seq);
-            }
-
-            /*Update lattice*/
-            temp = lattice[conformation.positions[i].x][conformation.positions[i].y];
-            lattice[conformation.positions[i].x][conformation.positions[i].y] = lattice[config.curr.x][config.curr.y];
-            lattice[config.curr.x][config.curr.y] = temp;
-
-            /*Update positions*/
-            temp = conformation.positions[i].x;
-            conformation.positions[i].x = config.curr.x;
-            config.curr.x = config.prev.x;
-            config.prev.x = temp;
-            temp = conformation.positions[i].y;
-            conformation.positions[i].y = config.curr.y;
-            config.curr.y = config.prev.y;
-            config.prev.y = temp;
-
-            /*If reach a valid conformation, stop. Then the last modified will be de i th amino-acid*/
-            if (i != seq_len - 1 && coords_distance(conformation.positions[i], conformation.positions[i + 1]) == 1)
-            {
-                break;//******************************************************
-            }
-
-            ++i;
-        }
-
-        /*Update directions*/
-        if (config.nr_seq > 1)
-        {
-            i = config.nr_seq - 1;
-        }
-        else
-        {
-            Coord subtraction_result = subtract_coord(conformation.positions[1], conformation.positions[0]);
-            conformation.directions[0] = calculate_absolute_direction_by_move(subtraction_result);
-            i = 1;
-        }
-
-        while (i < seq_len - 1)
-        {
-            Coord subtraction1_result = subtract_coord(conformation.positions[i], conformation.positions[i - 1]);
-            Coord subtraction2_result = subtract_coord(conformation.positions[i + 1], conformation.positions[i]);
-            conformation.directions[i] = calculate_direction_by_move(subtraction1_result, subtraction2_result);
-            ++i;
-        }
+        previous_index = config.amino_acid_index + 1;
+        before_previous_index = config.amino_acid_index + 2;
+        last_modified = sequence_len - 1;
     }
 
-    /**DEVOLVES LATTICE TO ORIGINAL STATE*/
-    for (i = config.nr_seq; i < seq_len; ++i)
+    if (config.c.x == config.prev.x && config.c.y == config.prev.y)
     {
-        lattice[conformation.positions[i].x][conformation.positions[i].y] = -1;
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, config.amino_acid_index, config.curr, config.f);
+        ant.positions[config.amino_acid_index] = config.f;
+        config.curr =  ant.positions[config.amino_acid_index];
     }
-    for (i = config.nr_seq; i < seq_len; ++i)
+    else
+    {
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, previous_index, config.prev, config.c);
+        ant.positions[previous_index] = config.c;
+
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, config.amino_acid_index, config.curr, config.f);
+        ant.positions[config.amino_acid_index] = config.f;
+
+        i = before_previous_index;
+
+        while ((i < sequence_len - 1 && i >= 0 && coords_distance(ant.positions[i], ant.positions[i + 1]) != 1 &&
+                config.pm_type == ORIGINAL) ||
+                (i > 0 && i <= sequence_len - 1 && coords_distance(ant.positions[i], ant.positions[i - 1]) != 1 &&
+                 config.pm_type == INVERSE))
+        {
+            ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, i, ant.positions[i], config.curr);
+            tempCoord = ant.positions[i];
+            ant.positions[i] = config.curr;
+            config.curr = config.prev;
+            config.prev = tempCoord;
+
+            last_modified = i;
+
+            if (config.pm_type == ORIGINAL)
+            {
+                --i;
+            }
+            else if (config.pm_type == INVERSE)
+            {
+                ++i;
+            }
+
+        }
+
+    }
+
+    //DEVOLVES LATTICE TO ORIGINAL STATE
+
+    int start;
+    int end;
+
+    if (config.pm_type == ORIGINAL)
+    {
+        start = last_modified;
+        end = config.amino_acid_index;
+    }
+    else
+    {
+        end = last_modified;
+        start = config.amino_acid_index;
+    }
+
+    for (i = start; i <= end; ++i)
+    {
+        lattice[ant.positions[i].x][ant.positions[i].y] = -1;
+    }
+    for (i = start; i <= end; ++i)
     {
         lattice[ant_positions[i].x][ant_positions[i].y] = i;
     }
 
-    return conformation.energy;
+    return ant.energy;
 }
 
-int calculate_best_pull_move(int *seq, int seq_len, Conformation ant_conformation,int **lattice, Conformation best_conformation, Conformation config_conformation, Pull_move_config *configs, Pull_move_config *configs_inverse)
+
+
+void pull_move_search
+(
+    int *sequence,
+    int sequence_len,
+    Ant *original_ant,
+    int **lattice,
+    Ant best_ant,
+    Ant ant,
+    PM_config *configs
+)
+/* ============================================================
+ * Applies pull-moves on the protein while there is improvement
+ * ============================================================
+ */
 {
     int i;
     int j;
     int num_configs = 0;
-    int num_configs_inverse = 0;
     int previous_energy;
 
-    best_conformation.energy = 0;
+    best_ant.energy = 0;
 
-    /**APPLY PULL-MOVE WHILE THERE IS IMPORVEMENT*/
+    //APPLY PULL-MOVE WHILE THERE IS IMPROVEMENT
 
     do
     {
 
         num_configs = 0;
-        num_configs_inverse = 0;
-        previous_energy = ant_conformation.energy;
+        previous_energy = original_ant->energy;
 
-        for (i = 0; i < seq_len; ++i)
+        for (i = 0; i < sequence_len; ++i)
         {
-            lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = i;
+            lattice[original_ant->positions[i].x][original_ant->positions[i].y] = i;
         }
 
-        /**GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS*/
+        //GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS
 
-        for (i = 1; i < seq_len - 1; ++i)
+        for (i = 1; i < sequence_len - 1; ++i)
         {
-            num_configs += generate_pull_move_configs(i, lattice, ant_conformation.positions, configs, num_configs, seq_len);
-        }
-        for (i = 1; i < seq_len - 1; ++i)
-        {
-            num_configs_inverse += generate_pull_move_configs_inverse(i, lattice, ant_conformation.positions,
-                                   configs_inverse, num_configs_inverse, seq_len);
-        }
-
-        /*Apply all possible inverse pull-moves and save the best*/
-        for (i = 0; i < num_configs_inverse; ++i)
-        {
-            /*Copy original conformation*/
-            config_conformation.energy = ant_conformation.energy;
-            for (j = 0; j < seq_len; ++j)
-            {
-                config_conformation.positions[j] = ant_conformation.positions[j];
-                if (j < seq_len - 1)
-                {
-                    config_conformation.directions[j] = ant_conformation.directions[j];
-                }
-            }
-
-            /*Apply pull move on the copy*/
-            config_conformation.energy = apply_pull_move_inverse(config_conformation, configs_inverse[i], seq,
-                                         lattice, seq_len, ant_conformation.positions);
-
-            /*If the energy of the new conformation is lower than the actual best, update the best*/
-            if (config_conformation.energy < best_conformation.energy)
-            {
-                best_conformation.energy = config_conformation.energy;
-
-                for (j = 0; j < seq_len; ++j)
-                {
-                    best_conformation.positions[j] = config_conformation.positions[j];
-                    if (j < seq_len - 1)
-                    {
-                        best_conformation.directions[j] = config_conformation.directions[j];
-                    }
-                }
-            }
+            num_configs += generate_pull_move_configs(i, lattice, original_ant->positions, configs, num_configs, sequence_len);
         }
 
         /*Apply all possible pull-moves and save the best*/
         for (i = 0; i < num_configs; ++i)
         {
-            /*Copy original conformation*/
-            config_conformation.energy = ant_conformation.energy;
-            for (j = 0; j < seq_len; ++j)
+            /*Copy original original_ant*/
+            ant.energy = original_ant->energy;
+            for (j = 0; j < sequence_len; ++j)
             {
-                config_conformation.positions[j] = ant_conformation.positions[j];
-                if (j < seq_len - 1)
-                {
-                    config_conformation.directions[j] = ant_conformation.directions[j];
-                }
+                ant.positions[j] = original_ant->positions[j];
             }
 
             /*Apply pull move on the copy*/
-            config_conformation.energy = apply_pull_move(config_conformation, configs[i], seq,
-                                         lattice, seq_len, ant_conformation.positions);
+            ant.energy = apply_pull_move(ant, configs[i], sequence, lattice,
+                                         sequence_len, original_ant->positions);
 
-            /*If the energy of the new conformation is lower than the actual best, update the best*/
-            if (config_conformation.energy < best_conformation.energy)
+            if (ant.energy < best_ant.energy)
             {
-                best_conformation.energy = config_conformation.energy;
+                best_ant.energy = ant.energy;
 
-                for (j = 0; j < seq_len; ++j)
+                for (j = 0; j < sequence_len; ++j)
                 {
-                    best_conformation.positions[j] = config_conformation.positions[j];
-                    if (j < seq_len - 1)
-                    {
-                        best_conformation.directions[j] = config_conformation.directions[j];
-                    }
+                    best_ant.positions[j] = ant.positions[j];
                 }
             }
         }
 
-        /**CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION*/
+        //CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION
 
-        /*If the best found pull-moved conformation is better than the original conformation,
-        update the original and return the new energy*/
-        if (best_conformation.energy != 0 && best_conformation.energy <= ant_conformation.energy)
+        if (best_ant.energy != 0 && best_ant.energy <= original_ant->energy)
         {
             Coord distance_to_lattice_center;
+            distance_to_lattice_center = create_new_coord(sequence_len - best_ant.positions[0].x, sequence_len - best_ant.positions[0].y);
 
-            distance_to_lattice_center.x = seq_len - best_conformation.positions[0].x;
-            distance_to_lattice_center.y = seq_len - best_conformation.positions[0].y;
-            ant_conformation.energy = previous_energy;
+            original_ant->energy = previous_energy;
 
-            for (i = 0; i < seq_len; ++i)
+            for (i = 0; i < sequence_len; ++i)
             {
-                /*Clean lattice*/
-                lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
+                lattice[original_ant->positions[i].x][original_ant->positions[i].y] = -1;
             }
 
-            for (i = 0; i < seq_len; ++i)
+            for (i = 0; i < sequence_len; ++i)
             {
                 /*Move protein to center*/
-                best_conformation.positions[i].x += distance_to_lattice_center.x;
-                best_conformation.positions[i].y += distance_to_lattice_center.y;
+                best_ant.positions[i].x += distance_to_lattice_center.x;
+                best_ant.positions[i].y += distance_to_lattice_center.y;
 
-                ant_conformation.energy = best_conformation.energy;
+                original_ant->energy = best_ant.energy;
 
-                /*Update original conformation*/
-                ant_conformation.positions[i] = best_conformation.positions[i];
-                if (i < seq_len - 1)
-                {
-                    ant_conformation.directions[i] = best_conformation.directions[i];
-                }
+                /*Update original original_ant*/
+                original_ant->positions[i] = best_ant.positions[i];
 
             }
         }
     }
-    while(best_conformation.energy < previous_energy);
+    while(best_ant.energy < previous_energy);
 
-    /*Clean lattice*/
-    for (i = 0; i < seq_len; ++i)
+    for (i = 0; i < sequence_len; ++i)
     {
-        lattice[ant_conformation.positions[i].x][ant_conformation.positions[i].y] = -1;
+        lattice[original_ant->positions[i].x][original_ant->positions[i].y] = -1;
     }
 
-    return ant_conformation.energy;
+    original_ant->energy = best_ant.energy;
+
+}
+
+
+
+void extract_solution
+(
+    Ant ant,
+    Solution *solution,
+    int sequence_len
+)
+/* ===============================================
+ * Extracts conformation info from Ant to Solution
+ * ===============================================s
+ */
+{
+    Coord move, prev_move;
+    int i, direction;
+
+    solution->energy = ant.energy;
+
+    for (i = 0; i < sequence_len - 1; ++i)
+    {
+        move = subtract_coord(ant.positions[i + 1], ant.positions[i]);
+
+        if (i == 0)
+        {
+            direction = calculate_absolute_direction_by_move(move);
+        }
+        else
+        {
+            direction = calculate_direction_by_move(prev_move, move);
+        }
+
+        switch(direction)
+        {
+        case LEFT:
+            solution->directions[i] = 'L';
+            break;
+        case RIGHT:
+            solution->directions[i] = 'R';
+            break;
+        case STRAIGHT:
+            solution->directions[i] = 'S';
+            break;
+        default:
+            break;
+        }
+
+        prev_move = move;
+    }
+}
+
+
+
+void construct_conform
+(
+    ACO_config aco_config,
+    double **pheromone,
+    int **lattice,
+    int *sequence,
+    int sequence_len,
+    Ant *ant,
+    int *best_ant_by_index,
+    int ant_index,
+    Ant *ants
+)
+/* ====================================
+ * Builds ant conformation
+ * ====================================
+ */
+{
+    int i;
+    int j;
+    int num_candidates;
+    int selected_candidate;
+    double sum_probabilities;
+    double probabilities[3];
+    Coord curr_position;
+    Coord move;
+    Coord candidate_move[3];
+    Candidate candidates[3];
+
+    ant->energy = 0;
+    ant->energy_by_edge[0] = 0;
+
+    //DEFINES FIRST EDGE
+
+    lattice[sequence_len][sequence_len] = 0;
+    ant->positions[0] = create_new_coord(sequence_len, sequence_len);
+
+    move = create_new_coord(0, 1);
+    curr_position = create_new_coord(ant->positions[0].x + move.x,
+                                     ant->positions[0].y + move.y);
+    lattice[curr_position.x][curr_position.y] = 1;
+    ant->positions[1] = curr_position;
+
+
+    //CONSTRUCTOR LOOP
+
+    //For each edge except the first
+    for (i = 1; i < sequence_len - 1; ++i)
+    {
+        sum_probabilities = 0;
+        num_candidates = 0;
+
+        candidate_move[0] = left(move);
+        candidate_move[1] = right(move);
+        candidate_move[2] = straight(move);
+
+        //DEFINES CANDIDATES DIRECTION
+
+        //For each direction
+        for (j = 0; j < 3; ++j)
+        {
+
+            //If the next position in this direction is not occupied, turns current direction into a candidate
+            if (lattice[curr_position.x + candidate_move[j].x][curr_position.y + candidate_move[j].y] == -1)
+            {
+                candidates[num_candidates].move = candidate_move[j];
+                candidates[num_candidates].position.x = curr_position.x + candidates[num_candidates].move.x;
+                candidates[num_candidates].position.y = curr_position.y + candidates[num_candidates].move.y;
+
+                if (sequence[i + 1] == H)
+                {
+                    candidates[num_candidates].heuristic =
+                        calculate_absolute_heuristic_value(lattice, i + 1, candidates[num_candidates].position, sequence);
+                }
+                else
+                {
+                    candidates[num_candidates].heuristic = 0;
+                }
+
+                probabilities[num_candidates] =
+                    pow(pheromone[i][j], aco_config.alpha) *
+                    pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
+
+                sum_probabilities += probabilities[num_candidates];
+                ++num_candidates;
+            }
+
+        }
+
+        for (j = 0; j < num_candidates; ++j)
+        {
+            probabilities[j] = probabilities[j]/sum_probabilities;
+        }
+
+        //SELECTS A CANDIDATE
+
+        if (num_candidates == 0)
+        {
+            selected_candidate = -1;
+        }
+        else if (sum_probabilities == 0)
+        {
+            selected_candidate = rand() % num_candidates;
+        }
+        else if (num_candidates > 1)
+        {
+            selected_candidate = random_select(probabilities, num_candidates);
+        }
+        else if (num_candidates == 1)
+        {
+            selected_candidate = 0;
+        }
+
+        //UPDATE CONFORMATION
+
+        if (selected_candidate != -1)
+        {
+            move = candidates[selected_candidate].move;
+            curr_position = candidates[selected_candidate].position;
+            ant->energy_by_edge[i] = ant->energy;
+            ant->energy -= candidates[selected_candidate].heuristic;
+            ant->positions[i + 1] = curr_position;
+            lattice[curr_position.x][curr_position.y] = i + 1;
+
+        }
+        else
+        {
+            //WHEN IS IMPOSSIBLE CONTINUE THE FOLD PROCESS
+
+            switch (aco_config.collision_handler)
+            {
+
+            case PARTIAL_COPY:
+
+                //If theres no another ant to copy
+                if (best_ant_by_index[i] == -1)
+                {
+                    for (j = 0; j <= i; ++j)
+                    {
+                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
+                    }
+
+                    i = 0;
+                    ant->energy = 0;
+
+                    //Reset first edge
+                    lattice[sequence_len][sequence_len] = 0;
+                    ant->positions[0] = create_new_coord(sequence_len, sequence_len);
+
+                    move = create_new_coord(0, 1);
+                    curr_position = create_new_coord(ant->positions[0].x + move.x,
+                                                     ant->positions[0].y + move.y);
+                    lattice[curr_position.x][curr_position.y] = 1;
+                    ant->positions[1] = curr_position;
+                }
+                else
+                {
+                    for (j = 0; j <= i; ++j)
+                    {
+                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
+                    }
+
+                    //Copy best ant for index i until i th amino-acid*/
+                    for (j = 0; j <= i; ++j)
+                    {
+                        lattice[ants[best_ant_by_index[i]].positions[j].x][ants[best_ant_by_index[i]].positions[j].y] = j;
+                        ant->positions[j] = ants[best_ant_by_index[i]].positions[j];
+                        if (j != i)
+                        {
+                            ant->energy_by_edge[j] = ants[best_ant_by_index[i]].energy_by_edge[j];
+                        }
+                    }
+                    curr_position = ants[best_ant_by_index[i]].positions[i];
+                    ant->energy = ants[best_ant_by_index[i]].energy_by_edge[i];
+                    move = create_new_coord(curr_position.x - ants[best_ant_by_index[i]].positions[i - 1].x,
+                                            curr_position.y - ants[best_ant_by_index[i]].positions[i - 1].y);
+                    --i;
+                }
+                break;
+
+            default:
+                break;
+            }
+        }
+    }
+
+    for (i = 0; i < sequence_len - 1; ++i)
+    {
+        if (best_ant_by_index[i] == -1 || ants[best_ant_by_index[i]].energy_by_edge[i] > ant->energy_by_edge[i])
+        {
+            best_ant_by_index[i] = ant_index;
+        }
+    }
+}
+
+
+
+Solution aco_run
+(
+    int *sequence,
+    int sequence_len,
+    ACO_config aco_config,
+    int *seed
+)
+/* ====================================
+ * ACO main function
+ * ====================================
+ */
+{
+    int i;
+    int j;
+    int k;
+    int *best_ant_by_edge;
+    int **lattice;
+    Ant *ants;
+    Ant iteration_ant;
+    Ant best_ant;
+    Ant pm_best_ant;
+    Ant pm_ant;
+    PM_config* pm_configs;
+    double** pheromone;
+    Solution solution;
+
+
+    //Sets seed
+    if (*seed == -1)
+    {
+        *seed = (unsigned) time(NULL);
+    }
+    srand(*seed);
+
+    variables_initialization(aco_config, &pm_configs, &pm_best_ant, &pm_ant,
+                             &ants, &best_ant, sequence_len, &best_ant_by_edge,
+                             &lattice, &pheromone, &solution);
+
+    best_ant.energy = 0;
+
+    //Iteration loop
+    for (i = 0; i < aco_config.iterations; ++i)
+    {
+        //Population loop
+        for (j = 0; j < aco_config.population; ++j)
+        {
+            construct_conform(aco_config, pheromone, lattice, sequence, sequence_len, &ants[j],
+                              best_ant_by_edge, j, ants);
+
+            //Clean lattice
+            for (k = 0; k < sequence_len; ++k)
+            {
+                lattice[ants[j].positions[k].x][ants[j].positions[k].y] = -1;
+            }
+        }
+
+        //reset best ants by edge
+        for (j = 0; j < sequence_len - 1; ++j)
+        {
+            best_ant_by_edge[j] = -1;
+        }
+
+        iteration_ant = ants[0];
+
+        //Daemon search
+        for (j = 0; j < aco_config.population; ++j)
+        {
+
+            switch (aco_config.daemon)
+            {
+
+            case PULL_MOVE:
+
+                pull_move_search(sequence, sequence_len, &ants[j],
+                                         lattice, pm_best_ant, pm_ant,
+                                         pm_configs);
+                break;
+
+            default:
+                break;
+
+            }
+
+            if (ants[j].energy < iteration_ant.energy)
+            {
+                iteration_ant = ants[j];
+            }
+
+        }
+
+        //Update best ant
+        if (iteration_ant.energy < best_ant.energy)
+        {
+            best_ant.energy = iteration_ant.energy;
+            for (j = 0; j < sequence_len; ++j)
+            {
+                best_ant.positions[j] = iteration_ant.positions[j];
+            }
+        }
+
+        //Pheromone update
+        pheromone_evaporation(pheromone, sequence_len, aco_config.persistence);
+        for (j = 0; j < aco_config.population; ++j)
+        {
+            pheromone_deposit(pheromone, ants[j], sequence_len, best_ant.energy);
+        }
+    }
+
+    extract_solution(best_ant, &solution, sequence_len);
+    return solution;
 }

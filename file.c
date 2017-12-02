@@ -19,7 +19,10 @@ char *load_file_content(char *file_name)
     rewind(input_file);
 
     file_contents = malloc((input_file_size + 1) * (sizeof(char)));
-    fread(file_contents, sizeof(char), input_file_size, input_file);
+    if(fread(file_contents, sizeof(char), input_file_size, input_file) != input_file_size){
+        printf("Error in function file_reader.c: load_file_content: File not found\n");
+        exit(1);
+    };
     file_contents[input_file_size] = '\0';
 
     fclose(input_file);
@@ -58,6 +61,10 @@ char *get_key_value(char *root, char *key)
         printf("Error in function file_reader.c/load_file_content: Invalid value for key %s\n", key);
         exit(1);
     }
+
+    free(begin_tag_key);
+    free(end_tag_key);
+    free(root_copy);
     return return_value;
 }
 

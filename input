@@ -5,5 +5,5 @@
 <persistence>0.8</persistence>
 <population>1500</population>
 <iterations>500</iterations>
-<local-search>PULL_MOVE</local-search>
-<unfeasible-conformation-handler>PARTIAL_COPY</unfeasible-conformation-handler>
+<daemon>PULL_MOVE</daemon>
+<collision-handler>PARTIAL_COPY</collision-handler>

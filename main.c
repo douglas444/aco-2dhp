@@ -3,25 +3,21 @@
 #include <time.h>
 #include <string.h>
 #include "aco.h"
-#include "file_reader.h"
-
-void output_plot_file(int *seq, int seq_len, Conformation best_solution, char *file_name);
+#include "file.h"
 
 int main(int argc, char **argv)
 {
   int i;
   int *binary_sequence;
-  Aco_config aco_config;
+  ACO_config aco_config;
   char *input_file;
-  char *unfeasible_conformation_handler;
-  char *local_search;
+  char *collision_handler;
+  char *daemon;
   int sequence_size;
   char *char_sequence;
-  Conformation conformation;
-  char c;
   clock_t t0;
   double time;
-  char *output_file_name;
+  char *sequence_key;
 
   if (argc < 3) {
     printf("Invalid parameters\n");
@@ -31,6 +27,15 @@ int main(int argc, char **argv)
   ///Extract file content
   input_file = load_file_content(argv[1]);
 
+  ///Sequence key
+  sequence_key = (char*) malloc(sizeof(char) * (strlen(argv[2]) + 1));
+  if (sequence_key == NULL)
+  {
+    printf("Error in function main: Unable to allocate memory");
+    exit(1);
+  }
+  strcpy(sequence_key, argv[2]);
+
   ///Get parameters from file content
   aco_config.alpha = char_to_double(get_key_value(input_file, "alpha"));
   aco_config.beta = char_to_double(get_key_value(input_file, "beta"));
@@ -38,27 +43,25 @@ int main(int argc, char **argv)
   aco_config.persistence = char_to_double(get_key_value(input_file, "persistence"));
   aco_config.iterations = char_to_int(get_key_value(input_file, "iterations"));
   aco_config.population = char_to_int(get_key_value(input_file, "population"));
-  char_sequence = get_key_value(input_file, "sequence");
-  unfeasible_conformation_handler = get_key_value(input_file, "unfeasible-conformation-handler");
-  local_search = get_key_value(input_file, "local-search");
+  char_sequence = get_key_value(input_file, sequence_key);
+  collision_handler = get_key_value(input_file, "collision-handler");
+  daemon = get_key_value(input_file, "daemon");
 
   ///Set local search method
-  if (strcmp(local_search, "WITHOUT_LOCAL_SEARCH") == 0) {
-    aco_config.local_search = WITHOUT_LOCAL_SEARCH;
-  } else if (strcmp(local_search, "PULL_MOVE") == 0) {
-    aco_config.local_search = PULL_MOVE;
+  if (strcmp(daemon, "WITHOUT_LOCAL_SEARCH") == 0) {
+    aco_config.daemon = WITHOUT_LOCAL_SEARCH;
+  } else if (strcmp(daemon, "PULL_MOVE") == 0) {
+    aco_config.daemon = PULL_MOVE;
   } else {
     printf("Error in function main: Local search parameter not recognized\n");
     exit(1);
   }
 
-  ///Set unfeasible conformation handler method
-  if (strcmp(unfeasible_conformation_handler, "PARTIAL_COPY") == 0) {
-    aco_config.unfeasible_conformation_handler = PARTIAL_COPY;
-  } else if (strcmp(unfeasible_conformation_handler, "BLOCKED_POSITIONS") == 0) {
-    aco_config.unfeasible_conformation_handler = BLOCKED_POSITIONS;
+  ///Set collision handler method
+  if (strcmp(collision_handler, "PARTIAL_COPY") == 0) {
+    aco_config.collision_handler = PARTIAL_COPY;
   } else {
-    printf("Error in function main: Unfeasible conformation handler parameter not recognized\n");
+    printf("Error in function main: Collision handler parameter not recognized\n");
     exit(1);
   }
 
@@ -76,82 +79,20 @@ int main(int argc, char **argv)
   }
 
   ///Run ACO
+  int seed = -1;
   t0 = clock();
-  conformation = aco_run(binary_sequence, sequence_size, aco_config);
+  Solution solution = aco_run(binary_sequence, sequence_size, aco_config, &seed);
   time = (clock() - t0)/(double)CLOCKS_PER_SEC;
 
   ///Show results
-  output_file_name = (char*) malloc(sizeof(char) * strlen(argv[2]));
-  if (output_file_name == NULL)
-  {
-    printf("Error in function main: Unable to allocate memory");
-    exit(1);
-  }
-  strcpy(output_file_name, argv[2]);
-  output_plot_file(binary_sequence, sequence_size, conformation, argv[2]);
-
-  printf("%d %f", conformation.energy, time);
+  printf("%d %f %s", solution.energy, time, solution.directions);
 
 
   ///Free memory
   free(input_file);
   free(char_sequence);
   free(binary_sequence);
-  free(conformation.directions);
-  free(conformation.energy_by_link);
-  free(conformation.positions);
+  free(solution.directions);
 
   return 0;
-}
-
-void output_plot_file(int *seq, int seq_len, Conformation best_solution, char *file_name)
-{
-  int i;
-  int min_x;
-  int min_y;
-  int max_x;
-  int max_y;
-
-  FILE *f = fopen(file_name, "w");
-
-  if (f == NULL)
-  {
-    printf("Error in function output_plot_file: Unable to open output file\n");
-    exit(1);
-  }
-
-  min_x = best_solution.positions[0].x;
-  min_y = best_solution.positions[0].y;
-  max_x = best_solution.positions[0].x;
-  max_y = best_solution.positions[0].y;
-
-  for (i = 1; i < seq_len; ++i)
-  {
-    if (best_solution.positions[i].x < min_x)
-    {
-      min_x = best_solution.positions[i].x;
-    }
-    if (best_solution.positions[i].y < min_y)
-    {
-      min_y = best_solution.positions[i].y;
-    }
-    if (best_solution.positions[i].x > max_x)
-    {
-      max_x = best_solution.positions[i].x;
-    }
-    if (best_solution.positions[i].y > max_y)
-    {
-      max_y = best_solution.positions[i].y;
-    }
-  }
-
-  fprintf(f, "CONFORMATION DIMENSION: %d, %d\n", max_x - min_x, max_y - min_y);
-  fprintf(f, "NUMBER OF AMINO_ACIDS: %d\n", seq_len);
-
-  for (i = 0; i < seq_len; ++i)
-  {
-    fprintf(f, "%d %d %d\n", seq[i], best_solution.positions[i].x - min_x, best_solution.positions[i].y - min_y);
-  }
-  fclose(f);
-
 }

@@ -1,51 +1,27 @@
-typedef struct coord
+typedef struct solution
 {
-  int x;
-  int y;
-} Coord;
+    int energy;
+    char *directions;
+} Solution;
 
-typedef enum local_search
+typedef enum daemon
 {
-  WITHOUT_LOCAL_SEARCH = 0,
-  PULL_MOVE = 1
-} Local_search;
+    WITHOUT_LOCAL_SEARCH = 0,
+    PULL_MOVE = 1
+} Daemon;
 
-typedef enum unfeasible_handler
+typedef enum collision_handler
 {
-  PARTIAL_COPY = 1,
-  BLOCKED_POSITIONS = 2
-} Unfeasible_conformation_handler;
+    PARTIAL_COPY = 1
+} Collision_handler;
 
 typedef struct aco_config
 {
-  int population;
-  int iterations;
+    int population, iterations;
+    double alpha, beta, persistence, ini_pheromone;
+    Daemon daemon;
+    Collision_handler collision_handler;
 
-  double alpha;
-  double beta;
-  double persistence;
-  double ini_pheromone;
+} ACO_config;
 
-  Local_search local_search;
-  Unfeasible_conformation_handler unfeasible_conformation_handler;
-
-} Aco_config;
-
-typedef enum direction
-{
-  LEFT = 0,
-  RIGHT = 1,
-  STRAIGHT = 2
-} Direction;
-
-typedef struct conformation
-{
-  int *energy_by_link; /*Reached energy before i th link*/
-  int length;
-  int energy;
-  Coord *positions;
-  Direction *directions;
-} Conformation;
-
-
-Conformation aco_run(int *seq, int seq_len, Aco_config aco_config);
+Solution aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);
