@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="input output" />
+				<Option parameters="input sequence" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
@@ -21,7 +21,7 @@
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="input output" />
+				<Option parameters="input sequence" />
 				<Compiler>
 					<Add option="-O2" />
 				</Compiler>
@@ -37,11 +37,15 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="aco.h" />
-		<Unit filename="file_reader.c">
+		<Unit filename="file.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="file_reader.h" />
+		<Unit filename="file.h" />
 		<Unit filename="input" />
+		<Unit filename="lmatrix.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="lmatrix.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>

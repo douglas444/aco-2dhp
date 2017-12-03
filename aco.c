@@ -5,19 +5,21 @@
 #include "aco.h"
 
 
-
-enum direction {
+enum direction
+{
     LEFT = 0,
     RIGHT = 1,
     STRAIGHT = 2
 };
 
-enum polarity {
+enum polarity
+{
     P = 0,
     H = 1
 };
 
-enum pm_type {
+enum pm_type
+{
     ORIGINAL = 0,
     INVERSE = 1
 };
@@ -55,6 +57,17 @@ struct candidate
 
 };
 
+struct lmatrix
+{
+    int n;
+    int top;
+    int order;
+    int *values;
+    int initial_value;
+    unsigned int *to;
+    unsigned int *from;
+};
+
 
 typedef enum direction Direction;
 typedef enum polarity Polarity;
@@ -64,6 +77,86 @@ typedef struct ant Ant;
 typedef struct pm_config PM_config;
 typedef struct candidate Candidate;
 typedef struct lattice Lattice;
+typedef struct lmatrix Lmatrix;
+
+
+
+void initialize_lmatrix(Lmatrix *lmatrix, int initial_value, int n)
+/* ====================================
+ * Initialize lmatrix type
+ * ====================================
+ */
+{
+    int num_elements = n * n;
+
+    lmatrix->top = 0;
+    lmatrix->n = n;
+    lmatrix->initial_value = initial_value;
+
+    lmatrix->values = (int*) malloc(sizeof(int) * num_elements);
+    lmatrix->to = (unsigned int*) malloc(sizeof(unsigned int) * num_elements);
+    lmatrix->from = (unsigned int*) malloc(sizeof(unsigned int) * num_elements);
+
+}
+
+
+void destroy_lmatrix(Lmatrix *lmatrix)
+/* ====================================
+ * Free lmatrix memory
+ * ====================================
+ */
+{
+    free(lmatrix->values);
+    free(lmatrix->to);
+    free(lmatrix->from);
+}
+
+
+
+int lmatrix_read(Lmatrix *lmatrix, Coord coord)
+/* ====================================
+ * Read lmatrix
+ * ====================================
+ */
+{
+    int index = coord.x + lmatrix->n * coord.y;
+
+    if (lmatrix->from[index] < lmatrix->top && lmatrix->to[lmatrix->from[index]] == index)
+    {
+        return lmatrix->values[index];
+    }
+    else
+    {
+        lmatrix->from[index] = lmatrix->top;
+        lmatrix->to[lmatrix->top] = index;
+        lmatrix->values[index] = lmatrix->initial_value;
+        lmatrix->top++;
+        return lmatrix->values[index];
+    }
+}
+
+
+
+void lattice_write(Lmatrix *lmatrix, Coord coord, int value)
+/* ====================================
+ * Write lmatrix
+ * ====================================
+ */
+{
+    int index = coord.x + lmatrix->n * coord.y;
+
+    if (lmatrix->from[index] < lmatrix->top && lmatrix->to[lmatrix->from[index]] == index)
+    {
+        lmatrix->values[index] = value;
+    }
+    else
+    {
+        lmatrix->from[index] = lmatrix->top;
+        lmatrix->to[lmatrix->top] = index;
+        lmatrix->values[index] = value;
+        lmatrix->top++;
+    }
+}
 
 
 
@@ -123,7 +216,7 @@ void variables_initialization
     Ant *best_ant,
     int sequence_len,
     int **best_ant_by_edge,
-    int ***lattice,
+    Lmatrix *lattice,
     double ***pheromone,
     Solution *solution
 )
@@ -140,6 +233,7 @@ void variables_initialization
     initialize_ant(best_pm_ant, sequence_len);
     initialize_ant(pm_ant, sequence_len);
     initialize_ant(best_ant, sequence_len);
+    initialize_lmatrix(lattice, -1, 2 * sequence_len + 1);
     solution->directions = (char*) memory_allocation(sizeof(char) * (sequence_len - 1));
 
     *pheromone = (double**) memory_allocation(sizeof(double*) * sequence_len);
@@ -158,16 +252,6 @@ void variables_initialization
         (*best_ant_by_edge)[i] = -1;
     }
 
-    *lattice = (int**) memory_allocation(sizeof(int*) * (2 * sequence_len + 1));
-    for (i = 0; i < 2 * sequence_len + 1; ++i)
-    {
-        (*lattice)[i] = (int*) memory_allocation(sizeof(int) * (2 * sequence_len + 1));
-        for (j = 0; j < 2 * sequence_len + 1; ++j)
-        {
-            (*lattice)[i][j] = -1;
-        }
-    }
-
     *ants = (Ant*) memory_allocation(sizeof(Ant) * aco_config.population);
     for (i = 0; i < aco_config.population; ++i)
     {
@@ -181,7 +265,7 @@ void free_variables
 (
     ACO_config aco_config,
     int sequence_len,
-    int **lattice,
+    Lmatrix *lattice,
     int *best_ant_by_edge,
     Ant pm_ant,
     Ant pm_best_ant,
@@ -204,13 +288,10 @@ void free_variables
     {
         destroy_ant(ants[i]);
     }
-    for (i = 0; i < 2 * sequence_len + 1; ++i)
-    {
-        free(lattice[i]);
-    }
+
+    destroy_lmatrix(lattice);
 
     free(best_ant_by_edge);
-    free(lattice);
     free(pheromone);
     free(ants);
     destroy_ant(pm_best_ant);
@@ -220,11 +301,21 @@ void free_variables
 
 
 
-Coord subtract_coord
-(
-    Coord c1,
-    Coord c2
-)
+Coord new_coord(int x, int y)
+/* ===========================================================
+ * Returns a new variables of type Coord with the given values
+ * ===========================================================
+ */
+{
+    Coord coord;
+    coord.x = x;
+    coord.y = y;
+    return coord;
+}
+
+
+
+Coord subtract_coord(Coord c1, Coord c2)
 /* =======================================================
  * Calculates the difference between two given coordinates
  * =======================================================
@@ -246,7 +337,8 @@ int coords_distance(Coord c1, Coord c2)
  * =====================================================
  */
 {
-    return sqrt(pow(c1.x - c2.x, 2) + pow(c1.y - c2.y, 2));
+    return sqrt((c1.x - c2.x) * (c1.x - c2.x) +
+                (c1.y - c2.y) * (c1.y - c2.y));
 
 }
 
@@ -344,7 +436,7 @@ int calculate_direction_by_move(Coord prev_move, Coord move)
 
 int calculate_absolute_heuristic_value
 (
-    int **lattice,
+    Lmatrix *lattice,
     int amino_acid_index,
     Coord pos,
     int *sequence
@@ -355,24 +447,28 @@ int calculate_absolute_heuristic_value
  */
 {
     int heuristic_value = 0;
-    int right_neighbor = lattice[pos.x + 1][pos.y];
-    int left_neighbor = lattice[pos.x - 1][pos.y];
-    int down_neighbor = lattice[pos.x][pos.y - 1];
-    int up_neighbor = lattice[pos.x][pos.y + 1];
+    int right_neighbor = lmatrix_read(lattice, new_coord(pos.x + 1, pos.y));
+    int left_neighbor = lmatrix_read(lattice, new_coord(pos.x - 1, pos.y));
+    int down_neighbor = lmatrix_read(lattice, new_coord(pos.x, pos.y - 1));
+    int up_neighbor = lmatrix_read(lattice, new_coord(pos.x, pos.y + 1));
 
-    if (right_neighbor >= 0 && abs(right_neighbor - amino_acid_index) > 1 && sequence[right_neighbor] == H)
+    if (right_neighbor >= 0 && abs(right_neighbor - amino_acid_index) > 1 &&
+            sequence[right_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (left_neighbor >= 0 && abs(left_neighbor - amino_acid_index) > 1 && sequence[left_neighbor] == H)
+    if (left_neighbor >= 0 && abs(left_neighbor - amino_acid_index) > 1 &&
+            sequence[left_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (up_neighbor >= 0 && abs(up_neighbor - amino_acid_index) > 1 && sequence[up_neighbor] == H)
+    if (up_neighbor >= 0 && abs(up_neighbor - amino_acid_index) > 1 &&
+            sequence[up_neighbor] == H)
     {
         ++heuristic_value;
     }
-    if (down_neighbor >= 0 && abs(down_neighbor - amino_acid_index) > 1 && sequence[down_neighbor] == H)
+    if (down_neighbor >= 0 && abs(down_neighbor - amino_acid_index) > 1 &&
+            sequence[down_neighbor] == H)
     {
         ++heuristic_value;
     }
@@ -403,20 +499,6 @@ int random_select(double *probabilities, int len)
         ++i;
     }
     return result;
-}
-
-
-
-Coord create_new_coord(int x, int y)
-/* ===========================================================
- * Returns a new variables of type Coord with the given values
- * ===========================================================
- */
-{
-    Coord coord;
-    coord.x = x;
-    coord.y = y;
-    return coord;
 }
 
 
@@ -459,12 +541,7 @@ void pheromone_deposit
 
 
 
-void pheromone_evaporation
-(
-    double **pheromone,
-    int sequence_len,
-    double persistence
-)
+void pheromone_evaporation(double **pheromone, int sequence_len, double persistence)
 /* ==================================
  * ACO pheromone evaporation function
  * ==================================
@@ -604,7 +681,7 @@ int generate_pull_move_configs
 
 (
     int amino_acid_index,
-    int **lattice,
+    Lmatrix *lattice,
     Coord *ant_positions,
     PM_config *configs,
     int config_index,
@@ -615,18 +692,28 @@ int generate_pull_move_configs
  * ====================================
  */
 {
-    int num_configs;
     PM_config config;
+    int num_configs;
+    int right_neighbor;
+    int left_neighbor;
+    int down_neighbor;
+    int up_neighbor;
 
     num_configs = 0;
+
     config.pm_type = ORIGINAL;
     config.curr = ant_positions[amino_acid_index];
     config.next = ant_positions[amino_acid_index + 1];
     config.prev = ant_positions[amino_acid_index - 1];
     config.amino_acid_index = amino_acid_index;
 
+    right_neighbor = lmatrix_read(lattice, new_coord(config.next.x + 1, config.next.y));
+    left_neighbor = lmatrix_read(lattice, new_coord(config.next.x - 1, config.next.y));
+    up_neighbor = lmatrix_read(lattice, new_coord(config.next.x, config.next.y + 1));
+    down_neighbor = lmatrix_read(lattice, new_coord(config.next.x, config.next.y - 1));
+
     /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x + 1][config.next.y] == -1 && config.next.x + 1 != config.curr.x &&
+    if (right_neighbor == -1 && config.next.x + 1 != config.curr.x &&
             config.next.y != config.curr.y)
     {
         config.f.x = config.next.x + 1;
@@ -635,7 +722,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -645,7 +733,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (left) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x - 1][config.next.y] == -1 && config.next.x - 1 != config.curr.x &&
+    if (left_neighbor == -1 && config.next.x - 1 != config.curr.x &&
             config.next.y != config.curr.y)
     {
         config.f.x = config.next.x - 1;
@@ -654,7 +742,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -663,7 +752,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (up) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x][config.next.y + 1] == -1 && config.next.x != config.curr.x &&
+    if (up_neighbor == -1 && config.next.x != config.curr.x &&
             config.next.y + 1 != config.curr.y)
     {
         config.f.x = config.next.x;
@@ -672,7 +761,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
 
@@ -682,7 +772,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (down) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x][config.next.y - 1] == -1 && config.next.x != config.curr.x &&
+    if (down_neighbor == -1 && config.next.x != config.curr.x &&
             config.next.y - 1 != config.curr.y)
     {
         config.f.x = config.next.x;
@@ -692,7 +782,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -706,8 +797,13 @@ int generate_pull_move_configs
     config.prev = ant_positions[amino_acid_index + 1];
     config.amino_acid_index = amino_acid_index;
 
+    right_neighbor = lmatrix_read(lattice, new_coord(config.next.x + 1, config.next.y));
+    left_neighbor = lmatrix_read(lattice, new_coord(config.next.x - 1, config.next.y));
+    up_neighbor = lmatrix_read(lattice, new_coord(config.next.x, config.next.y + 1));
+    down_neighbor = lmatrix_read(lattice, new_coord(config.next.x, config.next.y - 1));
+
     /*If is adjacent (right) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x + 1][config.next.y] == -1 && config.next.x + 1 != config.curr.x &&
+    if (right_neighbor == -1 && config.next.x + 1 != config.curr.x &&
             config.next.y != config.curr.y)
     {
         config.f.x = config.next.x + 1;
@@ -716,7 +812,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -725,7 +822,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (left) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x - 1][config.next.y] == -1 && config.next.x - 1 != config.curr.x &&
+    if (left_neighbor == -1 && config.next.x - 1 != config.curr.x &&
             config.next.y != config.curr.y)
     {
         config.f.x = config.next.x - 1;
@@ -734,7 +831,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -743,7 +841,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (up) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x][config.next.y + 1] == -1 && config.next.x != config.curr.x &&
+    if (up_neighbor == -1 && config.next.x != config.curr.x &&
             config.next.y + 1 != config.curr.y)
     {
         config.f.x = config.next.x;
@@ -752,7 +850,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index] = config;
             ++config_index;
@@ -761,7 +860,7 @@ int generate_pull_move_configs
     }
 
     /*If is adjacent (down) to next amino-acid and diagonally adjacent to current amino-acid*/
-    if (lattice[config.next.x][config.next.y - 1] == -1 && config.next.x != config.curr.x &&
+    if (down_neighbor == -1 && config.next.x != config.curr.x &&
             config.next.y - 1 != config.curr.y)
     {
         config.f.x = config.next.x;
@@ -770,7 +869,8 @@ int generate_pull_move_configs
         config.c.y = config.f.y + config.curr.y - config.next.y;
 
         /*If F exists and C is empty or is equals do previous amino-acid*/
-        if (lattice[config.c.x][config.c.y] == -1 || (config.c.x == config.prev.x && config.c.y == config.prev.y))
+        if ((config.c.x == config.prev.x && config.c.y == config.prev.y) ||
+                lmatrix_read(lattice, config.c) == -1)
         {
             configs[config_index]= config;
             ++config_index;
@@ -786,7 +886,7 @@ int generate_pull_move_configs
 int change_amino_acid_position
 (
     int current_energy,
-    int **lattice,
+    Lmatrix *lattice,
     int *sequence,
     int amino_acid_index,
     Coord src,
@@ -802,13 +902,18 @@ int change_amino_acid_position
 
     if (sequence[amino_acid_index] == H)
     {
-        current_energy += calculate_absolute_heuristic_value(lattice, amino_acid_index, src, sequence);
-        current_energy -= calculate_absolute_heuristic_value(lattice, amino_acid_index, dest, sequence);
+        current_energy +=
+            calculate_absolute_heuristic_value(lattice, amino_acid_index,
+                                               src, sequence);
+
+        current_energy -=
+            calculate_absolute_heuristic_value(lattice, amino_acid_index,
+                                               dest, sequence);
     }
 
-    temp = lattice[src.x][src.y];
-    lattice[src.x][src.y] = lattice[dest.x][dest.y];
-    lattice[dest.x][dest.y] = temp;
+    temp = lmatrix_read(lattice, src);
+    lattice_write(lattice, src, lmatrix_read(lattice, dest));
+    lattice_write(lattice, dest, temp);
 
     return current_energy;
 }
@@ -820,7 +925,7 @@ int apply_pull_move
     Ant ant,
     PM_config config,
     int *sequence,
-    int **lattice,
+    Lmatrix *lattice,
     int sequence_len,
     Coord *ant_positions
 )
@@ -851,26 +956,36 @@ int apply_pull_move
 
     if (config.c.x == config.prev.x && config.c.y == config.prev.y)
     {
-        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, config.amino_acid_index, config.curr, config.f);
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence,
+                                                config.amino_acid_index,
+                                                config.curr, config.f);
+
         ant.positions[config.amino_acid_index] = config.f;
         config.curr =  ant.positions[config.amino_acid_index];
     }
     else
     {
-        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, previous_index, config.prev, config.c);
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence,
+                                                previous_index, config.prev,
+                                                config.c);
         ant.positions[previous_index] = config.c;
-
-        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, config.amino_acid_index, config.curr, config.f);
+        ant.energy = change_amino_acid_position(ant.energy, lattice, sequence,
+                                                config.amino_acid_index,
+                                                config.curr, config.f);
         ant.positions[config.amino_acid_index] = config.f;
 
         i = before_previous_index;
 
-        while ((i < sequence_len - 1 && i >= 0 && coords_distance(ant.positions[i], ant.positions[i + 1]) != 1 &&
-                config.pm_type == ORIGINAL) ||
-                (i > 0 && i <= sequence_len - 1 && coords_distance(ant.positions[i], ant.positions[i - 1]) != 1 &&
-                 config.pm_type == INVERSE))
+        while ((config.pm_type == ORIGINAL && i < sequence_len - 1 && i >= 0 &&
+                coords_distance(ant.positions[i], ant.positions[i + 1]) != 1) ||
+
+                (config.pm_type == INVERSE && i > 0 && i <= sequence_len - 1 &&
+                 coords_distance(ant.positions[i], ant.positions[i - 1]) != 1))
         {
-            ant.energy = change_amino_acid_position(ant.energy, lattice, sequence, i, ant.positions[i], config.curr);
+            ant.energy = change_amino_acid_position(ant.energy, lattice,
+                                                    sequence, i,
+                                                    ant.positions[i],
+                                                    config.curr);
             tempCoord = ant.positions[i];
             ant.positions[i] = config.curr;
             config.curr = config.prev;
@@ -909,11 +1024,11 @@ int apply_pull_move
 
     for (i = start; i <= end; ++i)
     {
-        lattice[ant.positions[i].x][ant.positions[i].y] = -1;
+        lattice_write(lattice, ant.positions[i], -1);
     }
     for (i = start; i <= end; ++i)
     {
-        lattice[ant_positions[i].x][ant_positions[i].y] = i;
+        lattice_write(lattice, ant_positions[i], i);
     }
 
     return ant.energy;
@@ -926,7 +1041,7 @@ void pull_move_search
     int *sequence,
     int sequence_len,
     Ant *original_ant,
-    int **lattice,
+    Lmatrix *lattice,
     Ant best_ant,
     Ant ant,
     PM_config *configs
@@ -947,20 +1062,23 @@ void pull_move_search
 
     do
     {
-
         num_configs = 0;
         previous_energy = original_ant->energy;
 
         for (i = 0; i < sequence_len; ++i)
         {
-            lattice[original_ant->positions[i].x][original_ant->positions[i].y] = i;
+            lattice_write(lattice, original_ant->positions[i], i);
         }
 
         //GENERATE ALL POSSIBLE PULL-MOVES CONFIGURATIONS
 
         for (i = 1; i < sequence_len - 1; ++i)
         {
-            num_configs += generate_pull_move_configs(i, lattice, original_ant->positions, configs, num_configs, sequence_len);
+            num_configs += generate_pull_move_configs(
+                               i, lattice,
+                               original_ant->positions,
+                               configs, num_configs,
+                               sequence_len);
         }
 
         /*Apply all possible pull-moves and save the best*/
@@ -990,17 +1108,15 @@ void pull_move_search
 
         //CHECKS IF NEW CONFORMATION IS BETTER THAN ORIGINAL CONFORMATION
 
-        if (best_ant.energy != 0 && best_ant.energy <= original_ant->energy)
+        if (best_ant.energy != 0 && best_ant.energy < original_ant->energy)
         {
             Coord distance_to_lattice_center;
-            distance_to_lattice_center = create_new_coord(sequence_len - best_ant.positions[0].x, sequence_len - best_ant.positions[0].y);
+            distance_to_lattice_center = new_coord(sequence_len - best_ant.positions[0].x,
+                                                   sequence_len - best_ant.positions[0].y);
 
             original_ant->energy = previous_energy;
 
-            for (i = 0; i < sequence_len; ++i)
-            {
-                lattice[original_ant->positions[i].x][original_ant->positions[i].y] = -1;
-            }
+            lattice->top = 0;
 
             for (i = 0; i < sequence_len; ++i)
             {
@@ -1018,23 +1134,13 @@ void pull_move_search
     }
     while(best_ant.energy < previous_energy);
 
-    for (i = 0; i < sequence_len; ++i)
-    {
-        lattice[original_ant->positions[i].x][original_ant->positions[i].y] = -1;
-    }
-
-    original_ant->energy = best_ant.energy;
+    lattice->top = 0;
 
 }
 
 
 
-void extract_solution
-(
-    Ant ant,
-    Solution *solution,
-    int sequence_len
-)
+void extract_solution(Ant ant, Solution *solution, int sequence_len)
 /* ===============================================
  * Extracts conformation info from Ant to Solution
  * ===============================================s
@@ -1083,7 +1189,7 @@ void construct_conform
 (
     ACO_config aco_config,
     double **pheromone,
-    int **lattice,
+    Lmatrix *lattice,
     int *sequence,
     int sequence_len,
     Ant *ant,
@@ -1102,23 +1208,26 @@ void construct_conform
     int selected_candidate;
     double sum_probabilities;
     double probabilities[3];
+    double normalized_heuristic;
     Coord curr_position;
     Coord move;
     Coord candidate_move[3];
     Candidate candidates[3];
+    Ant copied_ant;
+
 
     ant->energy = 0;
     ant->energy_by_edge[0] = 0;
 
     //DEFINES FIRST EDGE
 
-    lattice[sequence_len][sequence_len] = 0;
-    ant->positions[0] = create_new_coord(sequence_len, sequence_len);
+    lattice_write(lattice, new_coord(sequence_len, sequence_len), 0);
+    ant->positions[0] = new_coord(sequence_len, sequence_len);
 
-    move = create_new_coord(0, 1);
-    curr_position = create_new_coord(ant->positions[0].x + move.x,
-                                     ant->positions[0].y + move.y);
-    lattice[curr_position.x][curr_position.y] = 1;
+    move = new_coord(0, 1);
+    curr_position = new_coord(ant->positions[0].x + move.x,
+                              ant->positions[0].y + move.y);
+    lattice_write(lattice, curr_position, 1);
     ant->positions[1] = curr_position;
 
 
@@ -1139,27 +1248,34 @@ void construct_conform
         //For each direction
         for (j = 0; j < 3; ++j)
         {
-
             //If the next position in this direction is not occupied, turns current direction into a candidate
-            if (lattice[curr_position.x + candidate_move[j].x][curr_position.y + candidate_move[j].y] == -1)
+            if (lmatrix_read(lattice, new_coord(curr_position.x + candidate_move[j].x,
+                                                curr_position.y + candidate_move[j].y)) == -1)
             {
                 candidates[num_candidates].move = candidate_move[j];
-                candidates[num_candidates].position.x = curr_position.x + candidates[num_candidates].move.x;
-                candidates[num_candidates].position.y = curr_position.y + candidates[num_candidates].move.y;
+
+                candidates[num_candidates].position.x = curr_position.x +
+                                                        candidates[num_candidates].move.x;
+
+                candidates[num_candidates].position.y = curr_position.y +
+                                                        candidates[num_candidates].move.y;
 
                 if (sequence[i + 1] == H)
                 {
                     candidates[num_candidates].heuristic =
-                        calculate_absolute_heuristic_value(lattice, i + 1, candidates[num_candidates].position, sequence);
+                        calculate_absolute_heuristic_value(lattice,
+                                                           i + 1,
+                                                           candidates[num_candidates].position,
+                                                           sequence);
                 }
                 else
                 {
                     candidates[num_candidates].heuristic = 0;
                 }
 
-                probabilities[num_candidates] =
-                    pow(pheromone[i][j], aco_config.alpha) *
-                    pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
+                normalized_heuristic = exp((double) candidates[num_candidates].heuristic / 0.3);
+                probabilities[num_candidates] = pow(pheromone[i][j], aco_config.alpha) *
+                                                pow(normalized_heuristic, aco_config.beta);
 
                 sum_probabilities += probabilities[num_candidates];
                 ++num_candidates;
@@ -1200,7 +1316,7 @@ void construct_conform
             ant->energy_by_edge[i] = ant->energy;
             ant->energy -= candidates[selected_candidate].heuristic;
             ant->positions[i + 1] = curr_position;
-            lattice[curr_position.x][curr_position.y] = i + 1;
+            lattice_write(lattice, curr_position, i + 1);
 
         }
         else
@@ -1215,45 +1331,44 @@ void construct_conform
                 //If theres no another ant to copy
                 if (best_ant_by_index[i] == -1)
                 {
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
-                    }
+                    lattice->top = 0;
 
                     i = 0;
                     ant->energy = 0;
 
                     //Reset first edge
-                    lattice[sequence_len][sequence_len] = 0;
-                    ant->positions[0] = create_new_coord(sequence_len, sequence_len);
+                    lattice_write(lattice, new_coord(sequence_len, sequence_len), 0);
+                    ant->positions[0] = new_coord(sequence_len, sequence_len);
 
-                    move = create_new_coord(0, 1);
-                    curr_position = create_new_coord(ant->positions[0].x + move.x,
-                                                     ant->positions[0].y + move.y);
-                    lattice[curr_position.x][curr_position.y] = 1;
+                    move = new_coord(0, 1);
+                    curr_position = new_coord(ant->positions[0].x + move.x,
+                                              ant->positions[0].y + move.y);
+                    lattice_write(lattice, curr_position, 1);
                     ant->positions[1] = curr_position;
                 }
                 else
                 {
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
-                    }
+                    copied_ant = ants[best_ant_by_index[i]];
+
+                    lattice->top = 0;
 
                     //Copy best ant for index i until i th amino-acid*/
                     for (j = 0; j <= i; ++j)
                     {
-                        lattice[ants[best_ant_by_index[i]].positions[j].x][ants[best_ant_by_index[i]].positions[j].y] = j;
-                        ant->positions[j] = ants[best_ant_by_index[i]].positions[j];
+                        lattice_write(lattice, copied_ant.positions[j], j);
+                        ant->positions[j] = copied_ant.positions[j];
                         if (j != i)
                         {
-                            ant->energy_by_edge[j] = ants[best_ant_by_index[i]].energy_by_edge[j];
+                            ant->energy_by_edge[j] = copied_ant.energy_by_edge[j];
                         }
                     }
-                    curr_position = ants[best_ant_by_index[i]].positions[i];
-                    ant->energy = ants[best_ant_by_index[i]].energy_by_edge[i];
-                    move = create_new_coord(curr_position.x - ants[best_ant_by_index[i]].positions[i - 1].x,
-                                            curr_position.y - ants[best_ant_by_index[i]].positions[i - 1].y);
+
+                    curr_position = copied_ant.positions[i];
+                    ant->energy = copied_ant.energy_by_edge[i];
+
+                    move.x = curr_position.x - copied_ant.positions[i - 1].x;
+                    move.y = curr_position.y - copied_ant.positions[i - 1].y;
+
                     --i;
                 }
                 break;
@@ -1266,7 +1381,8 @@ void construct_conform
 
     for (i = 0; i < sequence_len - 1; ++i)
     {
-        if (best_ant_by_index[i] == -1 || ants[best_ant_by_index[i]].energy_by_edge[i] > ant->energy_by_edge[i])
+        if (best_ant_by_index[i] == -1 ||
+                ants[best_ant_by_index[i]].energy_by_edge[i] > ant->energy_by_edge[i])
         {
             best_ant_by_index[i] = ant_index;
         }
@@ -1289,9 +1405,8 @@ Solution aco_run
 {
     int i;
     int j;
-    int k;
     int *best_ant_by_edge;
-    int **lattice;
+    Lmatrix lattice;
     Ant *ants;
     Ant iteration_ant;
     Ant best_ant;
@@ -1321,14 +1436,11 @@ Solution aco_run
         //Population loop
         for (j = 0; j < aco_config.population; ++j)
         {
-            construct_conform(aco_config, pheromone, lattice, sequence, sequence_len, &ants[j],
-                              best_ant_by_edge, j, ants);
+            construct_conform(aco_config, pheromone, &lattice, sequence,
+                              sequence_len, &ants[j], best_ant_by_edge, j, ants);
 
             //Clean lattice
-            for (k = 0; k < sequence_len; ++k)
-            {
-                lattice[ants[j].positions[k].x][ants[j].positions[k].y] = -1;
-            }
+            lattice.top = 0;
         }
 
         //reset best ants by edge
@@ -1349,15 +1461,14 @@ Solution aco_run
             case PULL_MOVE:
 
                 pull_move_search(sequence, sequence_len, &ants[j],
-                                         lattice, pm_best_ant, pm_ant,
-                                         pm_configs);
+                                 &lattice, pm_best_ant, pm_ant,
+                                 pm_configs);
                 break;
 
             default:
                 break;
 
             }
-
             if (ants[j].energy < iteration_ant.energy)
             {
                 iteration_ant = ants[j];
@@ -1384,5 +1495,9 @@ Solution aco_run
     }
 
     extract_solution(best_ant, &solution, sequence_len);
+
+    free_variables(aco_config, sequence_len, &lattice, best_ant_by_edge, pm_ant,
+                   pm_best_ant, ants, pheromone, pm_configs);
+
     return solution;
 }
