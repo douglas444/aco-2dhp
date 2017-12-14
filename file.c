@@ -10,7 +10,7 @@ char *load_file_content(char *file_name)
     FILE *input_file = fopen(file_name, "r");
     if (input_file == NULL)
     {
-        printf("Error in function file_reader.c: load_file_content: File not found\n");
+        printf("Error in function file_reader.c/load_file_content: File not found\n");
         exit(1);
     }
 
@@ -20,7 +20,7 @@ char *load_file_content(char *file_name)
 
     file_contents = malloc((input_file_size + 1) * (sizeof(char)));
     if(fread(file_contents, sizeof(char), input_file_size, input_file) != input_file_size){
-        printf("Error in function file_reader.c: load_file_content: File not found\n");
+        printf("Error in function file_reader.c/load_file_content: File not found\n");
         exit(1);
     };
     file_contents[input_file_size] = '\0';

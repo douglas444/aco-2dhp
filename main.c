@@ -7,13 +7,14 @@
 
 int main(int argc, char **argv)
 {
+
     int i;
     int *binary_sequence;
     ACO_config aco_config;
     char *input_file;
     char *collision_handler;
     char *daemon;
-    int sequence_len;
+    int seq_len;
     char *char_sequence;
     clock_t t0;
     double time;
@@ -29,7 +30,7 @@ int main(int argc, char **argv)
     input_file = load_file_content(argv[1]);
 
     ///Sequence key
-    sequence_key = (char*) malloc(sizeof(char) * (strlen(argv[2]) + 1));
+    sequence_key = (char*) smalloc(sizeof(char) * (strlen(argv[2]) + 1));
     if (sequence_key == NULL)
     {
         printf("Error in function main: Unable to allocate memory");
@@ -44,8 +45,9 @@ int main(int argc, char **argv)
     aco_config.persistence = char_to_double(get_key_value(input_file, "persistence"));
     aco_config.iterations = char_to_int(get_key_value(input_file, "iterations"));
     char_sequence = get_key_value(input_file, sequence_key);
-    sequence_len= strlen(char_sequence);
-    if (sequence_len <= 25)
+    seq_len= strlen(char_sequence);
+
+    if (seq_len <= 25)
     {
         aco_config.population = char_to_int(get_key_value(input_file, "small-instances-population"));
     } else {
@@ -55,9 +57,9 @@ int main(int argc, char **argv)
     daemon = get_key_value(input_file, "daemon");
 
     ///Set local search method
-    if (strcmp(daemon, "WITHOUT_LOCAL_SEARCH") == 0)
+    if (strcmp(daemon, "WITHOUT_DAEMON") == 0)
     {
-        aco_config.daemon = WITHOUT_LOCAL_SEARCH;
+        aco_config.daemon = WITHOUT_DAEMON;
     }
     else if (strcmp(daemon, "PULL_MOVE") == 0)
     {
@@ -81,33 +83,60 @@ int main(int argc, char **argv)
     }
 
     ///generate protein binary sequence
-    binary_sequence = (int*) malloc(sequence_len * sizeof(int));
+    binary_sequence = (int*) smalloc(seq_len * sizeof(int));
     if (binary_sequence == NULL)
     {
         printf("Error in function main: Unable to allocate memory");
         exit(1);
     }
-    for (i = 0; i < sequence_len; ++i)
+    for (i = 0; i < seq_len; ++i)
     {
         binary_sequence[i] = char_sequence[i] == 'H' ? 1 : 0;
     }
 
     ///Run ACO
     int seed = -1;
+    Ant *ants;
+    Solution best_solution;
+    Solution *final_solutions;
+
+    init_solution(&best_solution, seq_len);
+    ants = (Ant*) smalloc(sizeof(Ant) * aco_config.population);
+    final_solutions = (Solution*) smalloc(sizeof(Solution) * aco_config.population);
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        init_ant(&(ants[i]), seq_len);
+        init_solution(&(final_solutions[i]), seq_len);
+
+    }
+
     t0 = clock();
-    Solution solution = aco_run(binary_sequence, sequence_len, aco_config, &seed);
+    Ant best_ant = aco_run(binary_sequence, seq_len, aco_config, &seed, ants);
     time = (clock() - t0)/(double)CLOCKS_PER_SEC;
 
-    ///Show results
-    printf("%d %f %s", solution.energy, time, solution.directions);
+    extract_solution(best_ant, &best_solution, seq_len);
+
+    ///Show best_ant results
+    printf("%d %f %s ", best_solution.energy, time, best_solution.directions);
+
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        extract_solution(ants[i], &(final_solutions[i]), seq_len);
+        printf("[%d][%s]\\n", final_solutions[i].energy, final_solutions[i].directions);
+    }
+
 
 
     ///Free memory
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        free_ant(ants[i]);
+        free_solution(final_solutions[i]);
+    }
     free(sequence_key);
     free(input_file);
     free(char_sequence);
     free(binary_sequence);
-    free(solution.directions);
 
     return 0;
 }
