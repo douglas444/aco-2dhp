@@ -5,12 +5,14 @@ do
 
 	echo "Sequence $i" 
 
+	output=""
 	best_energy=0
 	best_energy_occurrences=0
 	time_sum=0
 	solution=""
 	best_solution=""
 	population=""
+	sequence=""
 
 	for j in `seq 1 $runs_per_instance`
 	do
@@ -26,8 +28,8 @@ do
 		energy="$(cut -d' ' -f1 <<<$output)"
 		time="$(cut -d' ' -f2 <<<$output)"
 		solution="$(cut -d' ' -f3 <<<$output)"
-		sequence="$(cut -d' ' -f4 <<<$output)"
 		time_sum=$(echo "$time_sum + $time" | bc)
+
 
 		if [ $energy -eq $best_energy ]
 		then
@@ -56,6 +58,8 @@ do
 	echo " * Time avg = $time_avg (s)"
 	echo " * Solution = $best_solution"
 
-	./2dhp_plot "$sequence" "$best_solution" sequence"$i"
+	sequence="$(cut -d' ' -f4 <<<$output)"
+
+	./2dhp-plot "$sequence" "$best_solution" sequence"$i"
 
 done

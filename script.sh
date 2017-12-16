@@ -5,6 +5,7 @@ do
 
 	echo "Sequence $i" 
 
+	output=""
 	best_energy=0
 	best_energy_occurrences=0
 	time_sum=0
@@ -22,7 +23,7 @@ do
 			exit 1
 		fi
 
-		output=$(printf "%s %s %s %s" $output)
+		output=$(printf "%s %s %s %s %s" $output)
 		energy="$(cut -d' ' -f1 <<<$output)"
 		time="$(cut -d' ' -f2 <<<$output)"
 		solution="$(cut -d' ' -f3 <<<$output)"
@@ -44,7 +45,7 @@ do
 		  mkdir -p ./final_ants/sequence_$i/;
 		fi
 
-		echo -e "$(cut -d' ' -f4 <<<$output)" > "./final_ants/sequence_$i/run_$j"
+		echo -e "$(cut -d' ' -f5 <<<$output)" > "./final_ants/sequence_$i/run_$j"
 
 	done
 
