@@ -119,13 +119,17 @@ int main(int argc, char **argv)
     ///Show best_ant results
     printf("%d %f %s ", best_solution.energy, time, best_solution.directions);
 
+    for (i = 0; i < seq_len; ++i)
+    {
+        printf("%c", char_sequence[i]);
+    }
+    printf(" ");
+
     for (i = 0; i < aco_config.population; ++i)
     {
         extract_solution(ants[i], &(final_solutions[i]), seq_len);
         printf("[%d][%s]\\n", final_solutions[i].energy, final_solutions[i].directions);
     }
-
-
 
     ///Free memory
     for (i = 0; i < aco_config.population; ++i)

@@ -955,8 +955,6 @@ void pm_search
         lattice[original_ant->positions[i].x][original_ant->positions[i].y] = -1;
     }
 
-    original_ant->energy = best_ant.energy;
-
 }
 
 
