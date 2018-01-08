@@ -11,7 +11,6 @@ do
 	time_sum=0
 	solution=""
 	best_solution=""
-	population=""
 	sequence=""
 
 	for j in `seq 1 $runs_per_instance`
