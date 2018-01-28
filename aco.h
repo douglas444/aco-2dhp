@@ -4,13 +4,6 @@ struct solution
     char *directions;
 };
 
-struct ant
-{
-    int energy;
-    int *energy_by_edge;
-    struct coord *positions;
-};
-
 enum daemon
 {
     WITHOUT_DAEMON = 0,
@@ -19,7 +12,7 @@ enum daemon
 
 enum collision_handler
 {
-    PARTIAL_COPY = 1
+    PARTIAL_COPY = 0
 };
 
 struct aco_config
@@ -30,15 +23,11 @@ struct aco_config
     enum collision_handler collision_handler;
 };
 
-typedef struct ant Ant;
 typedef enum daemon Daemon;
 typedef enum collision_handler Collision_handler;
 typedef struct aco_config ACO_config;
 typedef struct solution Solution;
 
 void* smalloc(int mem_size);
-void free_ant(Ant ant);
-void init_solution(Solution *solution, int seq_len);
 void free_solution(Solution solution);
-void extract_solution(Ant ant, Solution *solution, int seq_len);
-Ant aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);
+Solution aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);

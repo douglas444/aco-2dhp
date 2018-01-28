@@ -18,7 +18,6 @@ int main(int argc, char **argv)
     char *char_sequence;
     char *sequence_key;
 
-    Ant best_ant;
     Solution solution;
     int seed = -1;
     clock_t t0;
@@ -104,13 +103,12 @@ int main(int argc, char **argv)
     //Run PSO------------------------------------------------------------------
 
     t0 = clock();
-    best_ant = aco_run(binary_sequence, seq_len, aco_config, &seed);
+    solution = aco_run(binary_sequence, seq_len, aco_config, &seed);
     time = (clock() - t0)/(double)CLOCKS_PER_SEC;
 
     //Output ------------------------------------------------------------------
 
-    init_solution(&solution, seq_len);
-    extract_solution(best_ant, &solution, seq_len);
+
     printf("%d %f %s ", solution.energy, time, solution.directions);
     for (i = 0; i < seq_len; ++i)
     {
@@ -120,7 +118,6 @@ int main(int argc, char **argv)
     //Free memory -------------------------------------------------------------
 
     free_solution(solution);
-    free_ant(best_ant);
     free(sequence_key);
     free(input_file);
     free(char_sequence);

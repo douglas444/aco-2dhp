@@ -29,6 +29,13 @@ struct coord
     int y;
 };
 
+struct ant
+{
+    int energy;
+    int *energy_by_edge;
+    struct coord *positions;
+};
+
 struct pm_config
 {
     int amino_acid_index;
@@ -56,6 +63,7 @@ typedef struct pm_config Pm_config;
 typedef struct candidate Candidate;
 typedef struct lattice Lattice;
 typedef struct coord Coord;
+typedef struct ant Ant;
 
 
 
@@ -138,7 +146,8 @@ void init_variables
     int **best_ant_by_edge,
     int ***lattice,
     double ***pheromone,
-    Ant **ants
+    Ant **ants,
+    Solution *solution
 )
 /* =======================================
  * Allocates all aco.c exclusive variables
@@ -186,6 +195,8 @@ void init_variables
         init_ant(&((*ants)[i]), seq_len);
     }
 
+    init_solution(solution, seq_len);
+
 }
 
 
@@ -196,6 +207,7 @@ void free_variables
     int seq_len,
     int **lattice,
     int *best_ant_by_edge,
+    Ant best_ant,
     Ant pm_best_ant,
     Ant pm_ant,
     double **pheromone,
@@ -228,6 +240,7 @@ void free_variables
     free(pheromone);
     free_ant(pm_best_ant);
     free_ant(pm_ant);
+    free_ant(best_ant);
     free(pm_configs);
 }
 
@@ -1223,7 +1236,7 @@ void construct_conform
 
 
 
-Ant aco_run
+Solution aco_run
 (
     int *seq,
     int seq_len,
@@ -1247,6 +1260,7 @@ Ant aco_run
     Ant pm_ant;
     Pm_config* pm_configs;
     double** pheromone;
+    Solution solution;
 
 
     //Sets seed
@@ -1257,7 +1271,7 @@ Ant aco_run
     srand(*seed);
 
     init_variables(aco_config, &pm_configs, &pm_best_ant, &pm_ant, &best_ant,
-                   seq_len, &best_ant_by_edge, &lattice, &pheromone, &ants);
+                   seq_len, &best_ant_by_edge, &lattice, &pheromone, &ants, &solution);
 
     best_ant.energy = 0;
 
@@ -1329,8 +1343,10 @@ Ant aco_run
         }
     }
 
-    free_variables(aco_config, seq_len, lattice, best_ant_by_edge,
+    extract_solution(best_ant, &solution, seq_len);
+
+    free_variables(aco_config, seq_len, lattice, best_ant_by_edge, best_ant,
                    pm_best_ant, pm_ant, pheromone, pm_configs, ants);
 
-    return best_ant;
+    return solution;
 }
