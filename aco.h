@@ -44,4 +44,4 @@ void free_solution(Solution solution);
 void init_ant(Ant *ant, int seq_len);
 void free_ant(Ant ant);
 void extract_solution(Ant ant, Solution *solution, int seq_len);
-Ant aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed, Ant *ants);
+Ant aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed, Ant *ants, int *best_energy_evolution);

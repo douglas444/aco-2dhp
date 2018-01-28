@@ -1218,7 +1218,8 @@ Ant aco_run
     int seq_len,
     ACO_config aco_config,
     int *seed,
-    Ant *ants
+    Ant *ants,
+    int *best_energy_evolution
 )
 /* ====================================
  * ACO main function
@@ -1317,6 +1318,7 @@ Ant aco_run
         {
             pheromone_deposit(pheromone, ants[j], seq_len, best_ant.energy);
         }
+        best_energy_evolution[i] = best_ant.energy;
     }
 
     return best_ant;

@@ -15,7 +15,7 @@ do
 
 	for j in `seq 1 $runs_per_instance`
 	do
-		output=$(./aco-2dhp input sequence"$i")
+		output=$(./aco-2dhp ./input sequence"$i")
 
 		if echo "$output" | grep -q "Error"
 		then
@@ -23,7 +23,7 @@ do
 			exit 1
 		fi
 
-		output=$(printf "%s %s %s %s %s" $output)
+		output=$(printf "%s %s %s %s %s %s" $output)
 		energy="$(cut -d' ' -f1 <<<$output)"
 		time="$(cut -d' ' -f2 <<<$output)"
 		solution="$(cut -d' ' -f3 <<<$output)"
@@ -42,11 +42,18 @@ do
 			best_energy_occurrences=1
 		fi
 
+		if [ ! -d ./energy_evolution/sequence_$i/ ]; then
+		  mkdir -p ./energy_evolution//sequence_$i/;
+		fi
+		echo -e "$(cut -d' ' -f5 <<<$output)" > "./energy_evolution/sequence_$i/run_$j"
+
 		if [ ! -d ./final_ants/sequence_$i/ ]; then
 		  mkdir -p ./final_ants/sequence_$i/;
 		fi
+		echo -e "$(cut -d' ' -f6 <<<$output)" > "./final_ants/sequence_$i/run_$j"
 
-		echo -e "$(cut -d' ' -f5 <<<$output)" > "./final_ants/sequence_$i/run_$j"
+
+
 
 	done
 
@@ -59,6 +66,6 @@ do
 
 	sequence="$(cut -d' ' -f4 <<<$output)"
 
-	./2dhp-plot "$sequence" "$best_solution" sequence"$i"
+	./2dhp-plot "$sequence" "$best_solution" ./sequence"$i"
 
 done
