@@ -52,10 +52,10 @@ struct candidate
 typedef enum direction Direction;
 typedef enum polarity Polarity;
 typedef enum pm_type Pm_type;
-typedef struct coord Coord;
 typedef struct pm_config Pm_config;
 typedef struct candidate Candidate;
 typedef struct lattice Lattice;
+typedef struct coord Coord;
 
 
 
@@ -80,7 +80,54 @@ void* smalloc(int mem_size)
 
 
 
-void variables_initialization
+void init_solution(Solution *solution, int seq_len)
+/* ====================================================
+ * Allocates memory to Solution structure variables
+ * ====================================================
+ */
+{
+    solution->directions = (char*) smalloc(sizeof(char) * (seq_len + 1));
+}
+
+
+
+void free_solution(Solution solution)
+/* ===========================================
+ * Free memory of Solution structure variables
+ * ===========================================
+ */
+{
+    free(solution.directions);
+}
+
+
+
+void init_ant(Ant *ant, int seq_len)
+
+/* ===============================================
+ * Allocates memory to Ant structure variables
+ * ===============================================
+ */
+{
+    ant->energy_by_edge = (int*) smalloc(sizeof(int) * (seq_len - 1));
+    ant->positions = (Coord*) smalloc(sizeof(Coord) * seq_len);
+}
+
+
+
+void free_ant(Ant ant)
+/* =======================================
+ * Frees memory of Ant structure variables
+ * =======================================
+ */
+{
+    free(ant.energy_by_edge);
+    free(ant.positions);
+}
+
+
+
+void init_variables
 (
     ACO_config aco_config,
     Pm_config **pm_configs,
@@ -90,7 +137,8 @@ void variables_initialization
     int seq_len,
     int **best_ant_by_edge,
     int ***lattice,
-    double ***pheromone
+    double ***pheromone,
+    Ant **ants
 )
 /* =======================================
  * Allocates all aco.c exclusive variables
@@ -132,6 +180,12 @@ void variables_initialization
         }
     }
 
+    *ants = (Ant*) malloc(sizeof(Ant) * aco_config.population);
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        init_ant(&((*ants)[i]), seq_len);
+    }
+
 }
 
 
@@ -144,9 +198,9 @@ void free_variables
     int *best_ant_by_edge,
     Ant pm_best_ant,
     Ant pm_ant,
-    Ant best_ant,
     double **pheromone,
-    Pm_config *pm_configs
+    Pm_config *pm_configs,
+    Ant *ants
 )
 /* ==========================================
  * Frees all aco.c exclusive variables memory
@@ -163,61 +217,18 @@ void free_variables
     {
         free(lattice[i]);
     }
+    for (i = 0; i < aco_config.population; ++i)
+    {
+        free_ant(ants[i]);
+    }
 
+    free(ants);
     free(best_ant_by_edge);
     free(lattice);
     free(pheromone);
     free_ant(pm_best_ant);
     free_ant(pm_ant);
-    free_ant(best_ant);
     free(pm_configs);
-}
-
-
-
-void init_ant(Ant *ant, int seq_len)
-
-/* ===============================================
- * Allocates memory to Ant structure variables
- * ===============================================
- */
-{
-    ant->energy_by_edge = (int*) smalloc(sizeof(int) * (seq_len - 1));
-    ant->positions = (Coord*) smalloc(sizeof(Coord) * seq_len);
-}
-
-
-
-void free_ant(Ant ant)
-/* =======================================
- * Frees memory of Ant structure variables
- * =======================================
- */
-{
-    free(ant.energy_by_edge);
-    free(ant.positions);
-}
-
-
-
-void init_solution(Solution *solution, int seq_len)
-/* ====================================================
- * Allocates memory to Solution structure variables
- * ====================================================
- */
-{
-    solution->directions = (char*) smalloc(sizeof(char) * (seq_len + 1));
-}
-
-
-
-void free_solution(Solution solution)
-/* ===========================================
- * Free memory of Solution structure variables
- * ===========================================
- */
-{
-    free(solution.directions);
 }
 
 
@@ -1217,9 +1228,7 @@ Ant aco_run
     int *seq,
     int seq_len,
     ACO_config aco_config,
-    int *seed,
-    Ant *ants,
-    int *best_energy_evolution
+    int *seed
 )
 /* ====================================
  * ACO main function
@@ -1233,6 +1242,7 @@ Ant aco_run
     int **lattice;
     Ant iteration_ant;
     Ant best_ant;
+    Ant *ants;
     Ant pm_best_ant;
     Ant pm_ant;
     Pm_config* pm_configs;
@@ -1246,9 +1256,8 @@ Ant aco_run
     }
     srand(*seed);
 
-    variables_initialization(aco_config, &pm_configs, &pm_best_ant, &pm_ant,
-                             &best_ant, seq_len, &best_ant_by_edge, &lattice,
-                             &pheromone);
+    init_variables(aco_config, &pm_configs, &pm_best_ant, &pm_ant, &best_ant,
+                   seq_len, &best_ant_by_edge, &lattice, &pheromone, &ants);
 
     best_ant.energy = 0;
 
@@ -1318,8 +1327,10 @@ Ant aco_run
         {
             pheromone_deposit(pheromone, ants[j], seq_len, best_ant.energy);
         }
-        best_energy_evolution[i] = best_ant.energy;
     }
+
+    free_variables(aco_config, seq_len, lattice, best_ant_by_edge,
+                   pm_best_ant, pm_ant, pheromone, pm_configs, ants);
 
     return best_ant;
 }

@@ -18,11 +18,9 @@ int main(int argc, char **argv)
     char *char_sequence;
     char *sequence_key;
 
+    Ant best_ant;
+    Solution solution;
     int seed = -1;
-    int *best_energy_evolution;
-    Ant *ants;
-    Solution best_solution;
-    Solution *final_solutions;
     clock_t t0;
     double time;
 
@@ -105,62 +103,30 @@ int main(int argc, char **argv)
 
     //Run PSO------------------------------------------------------------------
 
-    init_solution(&best_solution, seq_len);
-    best_energy_evolution = (int*) malloc(sizeof(int) * aco_config.iterations);
-    ants = (Ant*) smalloc(sizeof(Ant) * aco_config.population);
-    final_solutions = (Solution*) smalloc(sizeof(Solution) * aco_config.population);
-
-    for (i = 0; i < aco_config.population; ++i)
-    {
-        init_ant(&(ants[i]), seq_len);
-        init_solution(&(final_solutions[i]), seq_len);
-
-    }
-
     t0 = clock();
-    Ant best_ant = aco_run(binary_sequence, seq_len, aco_config, &seed, ants, best_energy_evolution);
+    best_ant = aco_run(binary_sequence, seq_len, aco_config, &seed);
     time = (clock() - t0)/(double)CLOCKS_PER_SEC;
-
-    extract_solution(best_ant, &best_solution, seq_len);
 
     //Output ------------------------------------------------------------------
 
-    printf("%d %f %s ", best_solution.energy, time, best_solution.directions);
-
+    init_solution(&solution, seq_len);
+    extract_solution(best_ant, &solution, seq_len);
+    printf("%d %f %s ", solution.energy, time, solution.directions);
     for (i = 0; i < seq_len; ++i)
     {
         printf("%c", char_sequence[i]);
     }
-    printf(" ");
-
-    for (i = 0; i < aco_config.iterations; ++i)
-    {
-        printf("%d\\n", best_energy_evolution[i]);
-    }
-    printf(" ");
-
-    for (i = 0; i < aco_config.population; ++i)
-    {
-        extract_solution(ants[i], &(final_solutions[i]), seq_len);
-        printf("[%d][%s]\\n", final_solutions[i].energy, final_solutions[i].directions);
-    }
 
     //Free memory -------------------------------------------------------------
 
-    for (i = 0; i < aco_config.population; ++i)
-    {
-        free_ant(ants[i]);
-        free_solution(final_solutions[i]);
-    }
+    free_solution(solution);
     free_ant(best_ant);
-    free_solution(best_solution);
-    free(ants);
-    free(final_solutions);
     free(sequence_key);
     free(input_file);
     free(char_sequence);
     free(binary_sequence);
-    free(best_energy_evolution);
+    free(collision_handler);
+    free(daemon);
 
     return 0;
 }

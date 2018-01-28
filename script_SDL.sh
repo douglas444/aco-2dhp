@@ -15,7 +15,7 @@ do
 
 	for j in `seq 1 $runs_per_instance`
 	do
-		output=$(./aco-2dhp ./input sequence"$i")
+		output=$(./bin/Release/aco-2dhp ./input sequence"$i")
 
 		if echo "$output" | grep -q "Error"
 		then
@@ -41,19 +41,6 @@ do
 			best_solution=$solution
 			best_energy_occurrences=1
 		fi
-
-		if [ ! -d ./energy_evolution/sequence_$i/ ]; then
-		  mkdir -p ./energy_evolution//sequence_$i/;
-		fi
-		echo -e "$(cut -d' ' -f5 <<<$output)" > "./energy_evolution/sequence_$i/run_$j"
-
-		if [ ! -d ./final_ants/sequence_$i/ ]; then
-		  mkdir -p ./final_ants/sequence_$i/;
-		fi
-		echo -e "$(cut -d' ' -f6 <<<$output)" > "./final_ants/sequence_$i/run_$j"
-
-
-
 
 	done
 
