@@ -146,8 +146,7 @@ void init_variables
     int **best_ant_by_edge,
     int ***lattice,
     double ***pheromone,
-    Ant **ants,
-    Solution *solution
+    Ant **ants
 )
 /* =======================================
  * Allocates all aco.c exclusive variables
@@ -194,8 +193,6 @@ void init_variables
     {
         init_ant(&((*ants)[i]), seq_len);
     }
-
-    init_solution(solution, seq_len);
 
 }
 
@@ -983,11 +980,10 @@ void pm_search
 
 
 
-void extract_solution
+char* ant_to_string
 (
     Ant ant,
-    Solution *solution,
-    int seq_len
+    int num_dimensions
 )
 /* ===============================================
  * Extracts conformation info from Ant to Solution
@@ -996,10 +992,11 @@ void extract_solution
 {
     Coord move, prev_move;
     int i, direction;
+    char *directions;
 
-    solution->energy = ant.energy;
+    directions = (char*) malloc(sizeof(char) * num_dimensions);
 
-    for (i = 0; i < seq_len - 1; ++i)
+    for (i = 0; i < num_dimensions - 1; ++i)
     {
         move = subtract_coord(ant.positions[i + 1], ant.positions[i]);
 
@@ -1015,13 +1012,13 @@ void extract_solution
         switch(direction)
         {
         case LEFT:
-            solution->directions[i] = 'L';
+            directions[i] = 'L';
             break;
         case RIGHT:
-            solution->directions[i] = 'R';
+            directions[i] = 'R';
             break;
         case STRAIGHT:
-            solution->directions[i] = 'S';
+            directions[i] = 'S';
             break;
         default:
             break;
@@ -1030,7 +1027,8 @@ void extract_solution
         prev_move = move;
     }
 
-    solution->directions[seq_len - 1] = '\0';
+    directions[num_dimensions - 1] = '\0';
+    return directions;
 }
 
 
@@ -1236,7 +1234,7 @@ void construct_conform
 
 
 
-Solution aco_run
+Aco_result aco_run
 (
     int *seq,
     int seq_len,
@@ -1260,8 +1258,11 @@ Solution aco_run
     Ant pm_ant;
     Pm_config* pm_configs;
     double** pheromone;
-    Solution solution;
+    clock_t t0;
+    Aco_result aco_result;
 
+    //Start time counter
+    t0 = clock();
 
     //Sets seed
     if (*seed == -1)
@@ -1271,7 +1272,7 @@ Solution aco_run
     srand(*seed);
 
     init_variables(aco_config, &pm_configs, &pm_best_ant, &pm_ant, &best_ant,
-                   seq_len, &best_ant_by_edge, &lattice, &pheromone, &ants, &solution);
+                   seq_len, &best_ant_by_edge, &lattice, &pheromone, &ants);
 
     best_ant.energy = 0;
 
@@ -1328,6 +1329,7 @@ Solution aco_run
         //Update best ant
         if (iteration_ant.energy < best_ant.energy)
         {
+            aco_result.found_on_iteration = i;
             best_ant.energy = iteration_ant.energy;
             for (j = 0; j < seq_len; ++j)
             {
@@ -1343,10 +1345,36 @@ Solution aco_run
         }
     }
 
-    extract_solution(best_ant, &solution, seq_len);
+    //Ends time counter
+    aco_result.time = (clock() - t0)/(double)CLOCKS_PER_SEC;
+
+    aco_result.energy = best_ant.energy;
+    aco_result.final_population_avg = 0;
+    aco_result.final_population_solution_rate = 0;
+    aco_result.final_population_stddev = 0;
+
+    for (i = 0; i < aco_config.population; ++i) {
+        aco_result.final_population_avg += ants[i].energy;
+        if (ants[i].energy == best_ant.energy)
+        {
+            ++aco_result.final_population_solution_rate;
+        }
+    }
+
+    aco_result.final_population_solution_rate /= aco_config.population;
+    aco_result.final_population_avg /= aco_config.population;
+
+    for (i = 0; i < aco_config.population; ++i) {
+        aco_result.final_population_stddev += pow(aco_result.final_population_avg - ants[i].energy, 2);
+    }
+
+    aco_result.final_population_stddev /= aco_config.population;
+    aco_result.final_population_stddev = sqrt(aco_result.final_population_stddev);
+    aco_result.final_population_solution_rate *= 100;
+    aco_result.directions = ant_to_string(best_ant, seq_len);
 
     free_variables(aco_config, seq_len, lattice, best_ant_by_edge, best_ant,
                    pm_best_ant, pm_ant, pheromone, pm_configs, ants);
 
-    return solution;
+    return aco_result;
 }

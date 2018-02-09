@@ -18,10 +18,8 @@ int main(int argc, char **argv)
     char *char_sequence;
     char *sequence_key;
 
-    Solution solution;
     int seed = -1;
-    clock_t t0;
-    double time;
+    Aco_result aco_result;
 
     //Read file----------------------------------------------------------------
 
@@ -102,22 +100,23 @@ int main(int argc, char **argv)
 
     //Run PSO------------------------------------------------------------------
 
-    t0 = clock();
-    solution = aco_run(binary_sequence, seq_len, aco_config, &seed);
-    time = (clock() - t0)/(double)CLOCKS_PER_SEC;
+    aco_result = aco_run(binary_sequence, seq_len, aco_config, &seed);
 
     //Output ------------------------------------------------------------------
 
 
-    printf("%d %f %s ", solution.energy, time, solution.directions);
-    for (i = 0; i < seq_len; ++i)
-    {
-        printf("%c", char_sequence[i]);
-    }
+    printf("%s|", char_sequence);
+    printf("%s|", aco_result.directions);
+    printf("%d|", aco_result.energy);
+    printf("%f|", aco_result.final_population_avg);
+    printf("%f|", aco_result.final_population_solution_rate);
+    printf("%f|", aco_result.final_population_stddev);
+    printf("%d|", aco_result.found_on_iteration);
+    printf("%f", aco_result.time);
 
     //Free memory -------------------------------------------------------------
 
-    free_solution(solution);
+    free(aco_result.directions);
     free(sequence_key);
     free(input_file);
     free(char_sequence);

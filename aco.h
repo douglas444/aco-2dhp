@@ -23,11 +23,23 @@ struct aco_config
     enum collision_handler collision_handler;
 };
 
+struct aco_result
+{
+    char *directions;
+    int energy;
+    double time;
+    int found_on_iteration;
+    float final_population_avg;
+    float final_population_stddev;
+    float final_population_solution_rate;
+};
+
 typedef enum daemon Daemon;
 typedef enum collision_handler Collision_handler;
 typedef struct aco_config ACO_config;
 typedef struct solution Solution;
+typedef struct aco_result Aco_result;
 
 void* smalloc(int mem_size);
 void free_solution(Solution solution);
-Solution aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);
+Aco_result aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);
