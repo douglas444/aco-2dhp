@@ -63,7 +63,6 @@ do
 	echo "time avg: $time_avg (s)"
 	echo "solution: $best_solution"
 
-	sequence="$(cut -d' ' -f4 <<<$output)"
 	./2dhp-plot "$sequence" "$best_solution" ./sequence"$i"
 
 	echo ""

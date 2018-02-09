@@ -104,7 +104,6 @@ int main(int argc, char **argv)
 
     //Output ------------------------------------------------------------------
 
-
     printf("%s|", char_sequence);
     printf("%s|", aco_result.directions);
     printf("%d|", aco_result.energy);
