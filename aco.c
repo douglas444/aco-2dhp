@@ -1261,8 +1261,8 @@ Aco_result aco_run
     clock_t t0;
     Aco_result aco_result;
 
-    //Start time counter
-    t0 = clock();
+    /**/aco_result.energy_evolution = (int*) malloc(sizeof(int) * aco_config.iterations);
+    /**/t0 = clock();
 
     //Sets seed
     if (*seed == -1)
@@ -1326,10 +1326,16 @@ Aco_result aco_run
 
         }
 
+        /**/if (i == 0 || iteration_ant.energy < best_ant.energy) {
+        /**/    aco_result.energy_evolution[i] = iteration_ant.energy;
+        /**/} else {
+        /**/    aco_result.energy_evolution[i] = 1;
+        /**/}
+
         //Update best ant
         if (iteration_ant.energy < best_ant.energy)
         {
-            aco_result.found_on_iteration = i;
+            /**/aco_result.found_on_iteration = i;
             best_ant.energy = iteration_ant.energy;
             for (j = 0; j < seq_len; ++j)
             {
@@ -1345,33 +1351,33 @@ Aco_result aco_run
         }
     }
 
-    //Ends time counter
-    aco_result.time = (clock() - t0)/(double)CLOCKS_PER_SEC;
+    /**/aco_result.time = (clock() - t0)/(double)CLOCKS_PER_SEC;
+    /**/aco_result.energy = best_ant.energy;
+    /**/aco_result.final_population_avg = 0;
+    /**/aco_result.final_population_solution_rate = 0;
+    /**/aco_result.final_population_stddev = 0;
 
-    aco_result.energy = best_ant.energy;
-    aco_result.final_population_avg = 0;
-    aco_result.final_population_solution_rate = 0;
-    aco_result.final_population_stddev = 0;
+    /**/for (i = 0; i < aco_config.population; ++i) {
+    /**/    aco_result.final_population_avg += ants[i].energy;
+    /**/    if (ants[i].energy == best_ant.energy)
+    /**/    {
+    /**/        ++aco_result.final_population_solution_rate;
+    /**/    }
+    /**/}
 
-    for (i = 0; i < aco_config.population; ++i) {
-        aco_result.final_population_avg += ants[i].energy;
-        if (ants[i].energy == best_ant.energy)
-        {
-            ++aco_result.final_population_solution_rate;
-        }
-    }
+    /**/aco_result.final_population_solution_rate /= aco_config.population;
+    /**/aco_result.final_population_avg /= aco_config.population;
 
-    aco_result.final_population_solution_rate /= aco_config.population;
-    aco_result.final_population_avg /= aco_config.population;
+    /**/for (i = 0; i < aco_config.population; ++i) {
+    /**/    aco_result.final_population_stddev +=
+    /**/        (aco_result.final_population_avg - ants[i].energy) *
+    /**/        (aco_result.final_population_avg - ants[i].energy);
+    /**/}
 
-    for (i = 0; i < aco_config.population; ++i) {
-        aco_result.final_population_stddev += pow(aco_result.final_population_avg - ants[i].energy, 2);
-    }
-
-    aco_result.final_population_stddev /= aco_config.population;
-    aco_result.final_population_stddev = sqrt(aco_result.final_population_stddev);
-    aco_result.final_population_solution_rate *= 100;
-    aco_result.directions = ant_to_string(best_ant, seq_len);
+    /**/aco_result.final_population_stddev /= aco_config.population;
+    /**/aco_result.final_population_stddev = sqrt(aco_result.final_population_stddev);
+    /**/aco_result.final_population_solution_rate *= 100;
+    /**/aco_result.directions = ant_to_string(best_ant, seq_len);
 
     free_variables(aco_config, seq_len, lattice, best_ant_by_edge, best_ant,
                    pm_best_ant, pm_ant, pheromone, pm_configs, ants);

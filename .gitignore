@@ -2,6 +2,7 @@
 *.depend
 *~
 bin/
+results/
 obj/
 plot_file
 *.xml

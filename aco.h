@@ -26,6 +26,7 @@ struct aco_config
 struct aco_result
 {
     char *directions;
+    int *energy_evolution;
     int energy;
     double time;
     int found_on_iteration;

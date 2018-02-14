@@ -104,18 +104,26 @@ int main(int argc, char **argv)
 
     //Output ------------------------------------------------------------------
 
+    printf("%d|", aco_config.iterations);
     printf("%s|", char_sequence);
     printf("%s|", aco_result.directions);
     printf("%d|", aco_result.energy);
-    printf("%f|", aco_result.final_population_avg);
-    printf("%f|", aco_result.final_population_solution_rate);
-    printf("%f|", aco_result.final_population_stddev);
+    printf("%.2f|", aco_result.final_population_avg);
+    printf("%.2f|", aco_result.final_population_solution_rate);
+    printf("%.2f|", aco_result.final_population_stddev);
     printf("%d|", aco_result.found_on_iteration);
-    printf("%f", aco_result.time);
+    printf("%.2f|", aco_result.time);
+
+    for (i = 0; i < aco_config.iterations; ++i) {
+        if (aco_result.energy_evolution[i] != 1) {
+            printf("%d,%d/", i, aco_result.energy_evolution[i]);
+        }
+    }
 
     //Free memory -------------------------------------------------------------
 
     free(aco_result.directions);
+    free(aco_result.energy_evolution);
     free(sequence_key);
     free(input_file);
     free(char_sequence);
