@@ -15,6 +15,12 @@ enum collision_handler
     PARTIAL_COPY = 0
 };
 
+enum polarity
+{
+    P = 0,
+    H = 1
+};
+
 struct aco_config
 {
     int population, iterations;
@@ -37,10 +43,11 @@ struct aco_result
 
 typedef enum daemon Daemon;
 typedef enum collision_handler Collision_handler;
-typedef struct aco_config ACO_config;
+typedef enum polarity Polarity;
+typedef struct aco_config Aco_config;
 typedef struct solution Solution;
 typedef struct aco_result Aco_result;
 
 void* smalloc(int mem_size);
 void free_solution(Solution solution);
-Aco_result aco_run(int *sequence, int sequence_len, ACO_config aco_config, int *seed);
+Aco_result aco_run(Polarity *sequence, int sequence_len, Aco_config aco_config, int *seed);

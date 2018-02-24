@@ -1,3 +1,4 @@
+#!/bin/bash
 runs_per_instance=20
 
 [ -e ./results/summary ] && rm ./results/summary
@@ -60,7 +61,7 @@ do
 		echo "Run $j"
 
 		#Execute program
-		output=$(./bin/Release/aco-2dhp ./input sequence"$i")
+		output=$(sudo ./bin/Release/aco-2dhp ./input sequence"$i")
 		if echo "$output" | grep -q "Error"
 		then
 			echo "$output"

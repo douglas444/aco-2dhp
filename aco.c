@@ -11,12 +11,6 @@ enum direction
     STRAIGHT = 2
 };
 
-enum polarity
-{
-    P = 0,
-    H = 1
-};
-
 enum pm_type
 {
     ORIGINAL = 0,
@@ -57,15 +51,12 @@ struct candidate
 };
 
 typedef enum direction Direction;
-typedef enum polarity Polarity;
 typedef enum pm_type Pm_type;
 typedef struct pm_config Pm_config;
 typedef struct candidate Candidate;
 typedef struct lattice Lattice;
 typedef struct coord Coord;
 typedef struct ant Ant;
-
-
 
 void* smalloc(int mem_size)
 /* ====================================
@@ -77,7 +68,7 @@ void* smalloc(int mem_size)
 
     if (mem_pos == NULL)
     {
-        printf("Error in function aco.c/smalloc: Unable to allocate memory\n");
+        printf("ERROR: aco.c/smalloc(): \"Unable to allocate memory\"\n");
         exit(1);
     }
     else
@@ -85,8 +76,6 @@ void* smalloc(int mem_size)
         return mem_pos;
     }
 }
-
-
 
 void init_solution(Solution *solution, int seq_len)
 /* ====================================================
@@ -97,8 +86,6 @@ void init_solution(Solution *solution, int seq_len)
     solution->directions = (char*) smalloc(sizeof(char) * (seq_len + 1));
 }
 
-
-
 void free_solution(Solution solution)
 /* ===========================================
  * Free memory of Solution structure variables
@@ -107,8 +94,6 @@ void free_solution(Solution solution)
 {
     free(solution.directions);
 }
-
-
 
 void init_ant(Ant *ant, int seq_len)
 
@@ -121,8 +106,6 @@ void init_ant(Ant *ant, int seq_len)
     ant->positions = (Coord*) smalloc(sizeof(Coord) * seq_len);
 }
 
-
-
 void free_ant(Ant ant)
 /* =======================================
  * Frees memory of Ant structure variables
@@ -133,11 +116,9 @@ void free_ant(Ant ant)
     free(ant.positions);
 }
 
-
-
 void init_variables
 (
-    ACO_config aco_config,
+    Aco_config aco_config,
     Pm_config **pm_configs,
     Ant *pm_best_ant,
     Ant *pm_ant,
@@ -196,11 +177,9 @@ void init_variables
 
 }
 
-
-
 void free_variables
 (
-    ACO_config aco_config,
+    Aco_config aco_config,
     int seq_len,
     int **lattice,
     int *best_ant_by_edge,
@@ -241,8 +220,6 @@ void free_variables
     free(pm_configs);
 }
 
-
-
 Coord create_new_coord(int x, int y)
 /* ===========================================================
  * Returns a new variables of type Coord with the given values
@@ -254,8 +231,6 @@ Coord create_new_coord(int x, int y)
     coord.y = y;
     return coord;
 }
-
-
 
 Coord subtract_coord
 (
@@ -275,8 +250,6 @@ Coord subtract_coord
     return c3;
 }
 
-
-
 int lateral_adj(Coord c1, Coord c2)
 /* ===============================================
  * Check if two coordinates are laterally adjacent
@@ -290,8 +263,6 @@ int lateral_adj(Coord c1, Coord c2)
     }
 
 }
-
-
 
 int abs_direction_by_move(Coord move)
 /* =====================================
@@ -307,7 +278,7 @@ int abs_direction_by_move(Coord move)
         }
         else
         {
-            printf("Error in function aco.c/abs_direction_by_move: Invalid value for parameter move\n");
+            printf("ERROR: aco.c/abs_direction_by_move(): \"Invalid value for parameter move\"\n");
             exit(1);
         }
     }
@@ -323,18 +294,16 @@ int abs_direction_by_move(Coord move)
         }
         else
         {
-            printf("Error in function aco.c/abs_direction_by_move: Invalid value for parameter move\n");
+            printf("ERROR: aco.c/abs_direction_by_move(): \"Invalid value for parameter move\"\n");
             exit(1);
         }
     }
     else
     {
-        printf("Error in function aco.c/abs_direction_by_move: Invalid value for parameter move\n");
+        printf("ERROR: aco.c/abs_direction_by_move(): \"Invalid value for parameter move\"\n");
         exit(1);
     }
 }
-
-
 
 int direction_by_move(Coord prev_move, Coord move)
 /* ===========================================================
@@ -359,7 +328,7 @@ int direction_by_move(Coord prev_move, Coord move)
         }
         else
         {
-            printf("Error in function aco.c/direction_by_move: Invalid values for parameters\n");
+            printf("ERROR: aco.c/direction_by_move(): \"Invalid values for parameters\"\n");
             exit(1);
         }
     }
@@ -375,13 +344,11 @@ int direction_by_move(Coord prev_move, Coord move)
         }
         else
         {
-            printf("Error in function aco.c/direction_by_move: Invalid values for parameters\n");
+            printf("ERROR: aco.c/direction_by_move(): \"Invalid values for parameters\"\n");
             exit(1);
         }
     }
 }
-
-
 
 Coord straight(Coord prev_move)
 /* =================================================================
@@ -413,14 +380,12 @@ Coord straight(Coord prev_move)
     }
     else
     {
-        printf("Error in function aco.c/straight: Invalid value for parameter prev_move\n");
+        printf("ERROR: aco.c/straight(): \"Invalid value for parameter prev_move\"\n");
         exit(1);
     }
 
     return move;
 }
-
-
 
 Coord left(Coord prev_move)
 /* =============================================================
@@ -452,14 +417,12 @@ Coord left(Coord prev_move)
     }
     else
     {
-        printf("Error in function aco.c/left: Invalid value for parameter prev_move\n");
+        printf("ERROR: aco.c/left(): \"Invalid value for parameter prev_move\"\n");
         exit(1);
     }
 
     return move;
 }
-
-
 
 Coord right(Coord prev_move)
 /* ==============================================================
@@ -491,21 +454,19 @@ Coord right(Coord prev_move)
     }
     else
     {
-        printf("Error in function aco.c/right: Invalid value for parameter prev_move\n");
+        printf("ERROR: aco.c/right() \"Invalid value for parameter prev_move\"\n");
         exit(1);
     }
 
     return move;
 }
 
-
-
 int calculate_heuristic
 (
     int **lattice,
     int amino_acid_index,
     Coord pos,
-    int *seq
+    Polarity *seq
 )
 /* =================================================================================
  * Calculates the number of H-H contacts if a H amino-acid occupy the given position
@@ -542,8 +503,6 @@ int calculate_heuristic
     return heuristic_value;
 }
 
-
-
 int random_select(double *probabilities, int len)
 /* =====================================================================
  * Randomly chooses a integer between 0 and len with given probabilities
@@ -567,8 +526,6 @@ int random_select(double *probabilities, int len)
     return result;
 }
 
-
-
 void pheromone_deposit
 (
     double **pheromone,
@@ -577,7 +534,7 @@ void pheromone_deposit
     int best_energy
 )
 /* ==============================
- * ACO pheromone deposit function
+ * Aco pheromone deposit function
  * ==============================
  */
 {
@@ -596,16 +553,13 @@ void pheromone_deposit
         {
             direction = direction_by_move(prev_move, move);
         }
-
         if (best_energy != 0)
         {
-            pheromone[i][direction] += (double) ant.energy / best_energy * best_energy * best_energy;
+            pheromone[i][direction] += (double) ant.energy / (best_energy * best_energy * best_energy);
         }
         prev_move = move;
     }
 }
-
-
 
 void pheromone_evaporation
 (
@@ -614,7 +568,7 @@ void pheromone_evaporation
     double persistence
 )
 /* ==================================
- * ACO pheromone evaporation function
+ * Aco pheromone evaporation function
  * ==================================
  */
 {
@@ -629,13 +583,11 @@ void pheromone_evaporation
     }
 }
 
-
-
 int move_amino_acid
 (
     int current_energy,
     int **lattice,
-    int *seq,
+    Polarity *seq,
     int amino_acid_index,
     Coord src,
     Coord dest
@@ -661,13 +613,11 @@ int move_amino_acid
     return current_energy;
 }
 
-
-
 int apply_pm
 (
     Ant ant,
     Pm_config config,
-    int *seq,
+    Polarity *seq,
     int **lattice,
     int seq_len,
     Coord *ant_positions
@@ -778,8 +728,6 @@ int apply_pm
     return ant.energy;
 }
 
-
-
 int generate_pm_config
 (
     Pm_config *config,
@@ -821,8 +769,6 @@ int generate_pm_config
     /* Impossible generate the pull-move configuration */
     return 0;
 }
-
-
 
 void generate_pm_configs
 (
@@ -874,11 +820,9 @@ void generate_pm_configs
 
 }
 
-
-
 void pm_search
 (
-    int *seq,
+    Polarity *seq,
     int seq_len,
     Ant *original_ant,
     int **lattice,
@@ -978,8 +922,6 @@ void pm_search
 
 }
 
-
-
 char* ant_to_string
 (
     Ant ant,
@@ -1031,14 +973,12 @@ char* ant_to_string
     return directions;
 }
 
-
-
 void construct_conform
 (
-    ACO_config aco_config,
+    Aco_config aco_config,
     double **pheromone,
     int **lattice,
-    int *seq,
+    Polarity *seq,
     int seq_len,
     Ant *ant,
     int *best_ant_by_index,
@@ -1232,13 +1172,11 @@ void construct_conform
     }
 }
 
-
-
 Aco_result aco_run
 (
-    int *seq,
+    Polarity *seq,
     int seq_len,
-    ACO_config aco_config,
+    Aco_config aco_config,
     int *seed
 )
 /* ====================================

@@ -33,6 +33,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="README.md" />
 		<Unit filename="aco.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -45,6 +46,7 @@
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="script.sh" />
 		<Extensions>
 			<code_completion />
 			<debugger />
