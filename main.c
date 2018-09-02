@@ -8,20 +8,20 @@
 #include "file.h"
 
 void set_max_priority();
-Daemon string_to_daemon(char *daemon);
-Daemon string_to_collision_handler(char *collision_handler);
-Daemon char_to_polarity(char polarity);
-void read_inputs(Aco_config *aco_config, Polarity **sequence, int *sequence_len, char **argv, char **char_sequence);
+enum daemon string_to_daemon(char *daemon);
+enum daemon string_to_constructor(char *constructor);
+enum daemon char_to_polarity(char polarity);
+void read_inputs(struct aco_config *aco_config, enum polarity **sequence, int *sequence_len, char **argv, char **char_sequence);
 
 int main(int argc, char **argv)
 {
-    set_max_priority();
+    //set_max_priority();
 
     int i;
     char *char_sequence;
-    Aco_config aco_config;
-    Aco_result aco_result;
-    Polarity *sequence;
+    struct aco_config aco_config;
+    struct aco_result aco_result;
+    enum polarity *sequence;
     int sequence_len;
     int seed = -1;
 
@@ -69,11 +69,11 @@ void set_max_priority() {
 
 }
 
-Daemon string_to_daemon(char *daemon)
+enum daemon string_to_daemon(char *daemon)
 {
-    if (strcmp(daemon, "WITHOUT_DAEMON") == 0)
+    if (strcmp(daemon, "NONE") == 0)
     {
-        return WITHOUT_DAEMON;
+        return NONE;
     }
     else if (strcmp(daemon, "PULL_MOVE") == 0)
     {
@@ -86,20 +86,28 @@ Daemon string_to_daemon(char *daemon)
     }
 }
 
-Daemon string_to_collision_handler(char *collision_handler)
+enum daemon string_to_constructor(char *constructor)
 {
-    if (strcmp(collision_handler, "PARTIAL_COPY") == 0)
+    if (strcmp(constructor, "XIAO_LI_HU_2014") == 0)
     {
-        return PARTIAL_COPY;
+        return XIAO_LI_HU_2014;
+    }
+    else if (strcmp(constructor, "HU_ZHANG_LI_2009") == 0)
+    {
+        return HU_ZHANG_LI_2009;
+    }
+    else if (strcmp(constructor, "SHMYGELSKA_HOOS_2003") == 0)
+    {
+        return SHMYGELSKA_HOOS_2003;
     }
     else
     {
-        printf("ERROR: main.c/string_to_collision_handler(): \"Invalid value for collision_handler parameter\"\n");
+        printf("ERROR: main.c/string_to_constructor(): \"Invalid value for constructor parameter\"\n");
         exit(1);
     }
 }
 
-Daemon char_to_polarity(char polarity)
+enum daemon char_to_polarity(char polarity)
 {
     if (polarity == 'H')
     {
@@ -117,11 +125,11 @@ Daemon char_to_polarity(char polarity)
 
 }
 
-void read_inputs(Aco_config *aco_config, Polarity **sequence, int *sequence_len, char **argv, char **char_sequence)
+void read_inputs(struct aco_config *aco_config, enum polarity **sequence, int *sequence_len, char **argv, char **char_sequence)
 {
     int i;
     char *input_file;
-    char *collision_handler;
+    char *constructor;
     char *daemon;
     char *sequence_key;
 
@@ -142,18 +150,19 @@ void read_inputs(Aco_config *aco_config, Polarity **sequence, int *sequence_len,
     aco_config->ini_pheromone = char_to_double(get_key_value(input_file, "initial-pheromone"));
     aco_config->persistence = char_to_double(get_key_value(input_file, "persistence"));
     aco_config->iterations = char_to_int(get_key_value(input_file, "iterations"));
+    aco_config->elit_percentage = char_to_double(get_key_value(input_file, "elit-percentage"));
 
     *char_sequence = get_key_value(input_file, sequence_key);
-    collision_handler = get_key_value(input_file, "collision-handler");
+    constructor = get_key_value(input_file, "constructor");
     daemon = get_key_value(input_file, "daemon");
 
     *sequence_len = strlen(*char_sequence);
     aco_config->population = char_to_int(get_key_value(input_file,
         (*sequence_len <= 25) ? "small-instances-population" : "big-instances-population"));
     aco_config->daemon = string_to_daemon(daemon);
-    aco_config->collision_handler = string_to_collision_handler(collision_handler);
+    aco_config->constructor = string_to_constructor(constructor);
 
-    *sequence = (Polarity*) malloc(*sequence_len * sizeof(Polarity));
+    *sequence = (enum polarity*) malloc(*sequence_len * sizeof(enum polarity));
     if (*sequence == NULL)
     {
         printf("ERROR: main.c/read_inputs(): \"Unable to allocate memory\"\n");
@@ -166,7 +175,7 @@ void read_inputs(Aco_config *aco_config, Polarity **sequence, int *sequence_len,
 
     //free
     free(input_file);
-    free(collision_handler);
+    free(constructor);
     free(daemon);
     free(sequence_key);
 }

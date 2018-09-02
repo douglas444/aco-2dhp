@@ -50,14 +50,6 @@ struct candidate
 
 };
 
-typedef enum direction Direction;
-typedef enum pm_type Pm_type;
-typedef struct pm_config Pm_config;
-typedef struct candidate Candidate;
-typedef struct lattice Lattice;
-typedef struct coord Coord;
-typedef struct ant Ant;
-
 void* smalloc(int mem_size)
 /* ====================================
  * Allocates memory
@@ -77,38 +69,38 @@ void* smalloc(int mem_size)
     }
 }
 
-void init_solution(Solution *solution, int seq_len)
+void init_solution(struct solution *solution, int seq_len)
 /* ====================================================
- * Allocates memory to Solution structure variables
+ * Allocates memory to struct solution structure variables
  * ====================================================
  */
 {
     solution->directions = (char*) smalloc(sizeof(char) * (seq_len + 1));
 }
 
-void free_solution(Solution solution)
+void free_solution(struct solution solution)
 /* ===========================================
- * Free memory of Solution structure variables
+ * Free memory of struct solution structure variables
  * ===========================================
  */
 {
     free(solution.directions);
 }
 
-void init_ant(Ant *ant, int seq_len)
+void init_ant(struct ant *ant, int seq_len)
 
 /* ===============================================
- * Allocates memory to Ant structure variables
+ * Allocates memory to struct ant structure variables
  * ===============================================
  */
 {
     ant->energy_by_edge = (int*) smalloc(sizeof(int) * (seq_len - 1));
-    ant->positions = (Coord*) smalloc(sizeof(Coord) * seq_len);
+    ant->positions = (struct coord*) smalloc(sizeof(struct coord) * seq_len);
 }
 
-void free_ant(Ant ant)
+void free_ant(struct ant ant)
 /* =======================================
- * Frees memory of Ant structure variables
+ * Frees memory of struct ant structure variables
  * =======================================
  */
 {
@@ -118,16 +110,16 @@ void free_ant(Ant ant)
 
 void init_variables
 (
-    Aco_config aco_config,
-    Pm_config **pm_configs,
-    Ant *pm_best_ant,
-    Ant *pm_ant,
-    Ant *best_ant,
+    struct aco_config aco_config,
+    struct pm_config **pm_configs,
+    struct ant *pm_best_ant,
+    struct ant *pm_ant,
+    struct ant *best_ant,
     int seq_len,
     int **best_ant_by_edge,
     int ***lattice,
     double ***pheromone,
-    Ant **ants
+    struct ant **ants
 )
 /* =======================================
  * Allocates all aco.c exclusive variables
@@ -137,7 +129,7 @@ void init_variables
     int i;
     int j;
 
-    *pm_configs = (Pm_config*) smalloc(sizeof(Pm_config) * 4 * (seq_len - 2));
+    *pm_configs = (struct pm_config*) smalloc(sizeof(struct pm_config) * 4 * (seq_len - 2));
 
     init_ant(pm_best_ant, seq_len);
     init_ant(pm_ant, seq_len);
@@ -169,7 +161,7 @@ void init_variables
         }
     }
 
-    *ants = (Ant*) malloc(sizeof(Ant) * aco_config.population);
+    *ants = (struct ant*) malloc(sizeof(struct ant) * aco_config.population);
     for (i = 0; i < aco_config.population; ++i)
     {
         init_ant(&((*ants)[i]), seq_len);
@@ -179,16 +171,16 @@ void init_variables
 
 void free_variables
 (
-    Aco_config aco_config,
+    struct aco_config aco_config,
     int seq_len,
     int **lattice,
     int *best_ant_by_edge,
-    Ant best_ant,
-    Ant pm_best_ant,
-    Ant pm_ant,
+    struct ant best_ant,
+    struct ant pm_best_ant,
+    struct ant pm_ant,
     double **pheromone,
-    Pm_config *pm_configs,
-    Ant *ants
+    struct pm_config *pm_configs,
+    struct ant *ants
 )
 /* ==========================================
  * Frees all aco.c exclusive variables memory
@@ -220,29 +212,29 @@ void free_variables
     free(pm_configs);
 }
 
-Coord create_new_coord(int x, int y)
+struct coord create_new_coord(int x, int y)
 /* ===========================================================
- * Returns a new variables of type Coord with the given values
+ * Returns a new variables of type struct coord with the given values
  * ===========================================================
  */
 {
-    Coord coord;
+    struct coord coord;
     coord.x = x;
     coord.y = y;
     return coord;
 }
 
-Coord subtract_coord
+struct coord subtract_coord
 (
-    Coord c1,
-    Coord c2
+    struct coord c1,
+    struct coord c2
 )
 /* =======================================================
  * Calculates the difference between two given coordinates
  * =======================================================
  */
 {
-    Coord c3;
+    struct coord c3;
 
     c3.x = c1.x - c2.x;
     c3.y = c1.y - c2.y;
@@ -250,7 +242,7 @@ Coord subtract_coord
     return c3;
 }
 
-int lateral_adj(Coord c1, Coord c2)
+int lateral_adj(struct coord c1, struct coord c2)
 /* ===============================================
  * Check if two coordinates are laterally adjacent
  * ===============================================
@@ -264,7 +256,7 @@ int lateral_adj(Coord c1, Coord c2)
 
 }
 
-int abs_direction_by_move(Coord move)
+int abs_direction_by_move(struct coord move)
 /* =====================================
  * Calculates absolute direction by move
  * =====================================
@@ -305,7 +297,7 @@ int abs_direction_by_move(Coord move)
     }
 }
 
-int direction_by_move(Coord prev_move, Coord move)
+int direction_by_move(struct coord prev_move, struct coord move)
 /* ===========================================================
  * Calculates relative direction between two consecutive moves
  * ===========================================================
@@ -350,13 +342,13 @@ int direction_by_move(Coord prev_move, Coord move)
     }
 }
 
-Coord straight(Coord prev_move)
+struct coord straight(struct coord prev_move)
 /* =================================================================
  * Calculates straight move corresponding to the given previous move
  * =================================================================
  */
 {
-    Coord move;
+    struct coord move;
 
     if (prev_move.x == 1)
     {
@@ -387,13 +379,13 @@ Coord straight(Coord prev_move)
     return move;
 }
 
-Coord left(Coord prev_move)
+struct coord left(struct coord prev_move)
 /* =============================================================
  * Calculates left move corresponding to the given previous move
  * =============================================================
  */
 {
-    Coord move;
+    struct coord move;
 
     if (prev_move.x == 1)
     {
@@ -424,13 +416,13 @@ Coord left(Coord prev_move)
     return move;
 }
 
-Coord right(Coord prev_move)
+struct coord right(struct coord prev_move)
 /* ==============================================================
  * Calculates right move corresponding to the given previous move
  * ==============================================================
  */
 {
-    Coord move;
+    struct coord move;
 
     if (prev_move.x == 1)
     {
@@ -465,8 +457,8 @@ int calculate_heuristic
 (
     int **lattice,
     int amino_acid_index,
-    Coord pos,
-    Polarity *seq
+    struct coord pos,
+    enum polarity *seq
 )
 /* =================================================================================
  * Calculates the number of H-H contacts if a H amino-acid occupy the given position
@@ -529,7 +521,7 @@ int random_select(double *probabilities, int len)
 void pheromone_deposit
 (
     double **pheromone,
-    Ant ant,
+    struct ant ant,
     int seq_len,
     int best_energy
 )
@@ -539,7 +531,7 @@ void pheromone_deposit
  */
 {
     int i;
-    Coord move, prev_move;
+    struct coord move, prev_move;
     int direction;
 
     for (i = 0; i < seq_len - 1; ++i)
@@ -587,10 +579,10 @@ int move_amino_acid
 (
     int current_energy,
     int **lattice,
-    Polarity *seq,
+    enum polarity *seq,
     int amino_acid_index,
-    Coord src,
-    Coord dest
+    struct coord src,
+    struct coord dest
 )
 /* ==========================================================================
  * Moves a amino-acid to another position in the lattice, handling the energy
@@ -615,12 +607,12 @@ int move_amino_acid
 
 int apply_pm
 (
-    Ant ant,
-    Pm_config config,
-    Polarity *seq,
+    struct ant ant,
+    struct pm_config config,
+    enum polarity *seq,
     int **lattice,
     int seq_len,
-    Coord *ant_positions
+    struct coord *ant_positions
 )
 /* ========================================================
  * Applies the pull-move configuration to the given protein
@@ -632,7 +624,7 @@ int apply_pm
     int last_modified;
     int previous_index;
     int before_previous_index;
-    Coord tempCoord;
+    struct coord temp_coord;
 
     if (config.pm_type == ORIGINAL)
     {
@@ -680,10 +672,10 @@ int apply_pm
             ant.energy = move_amino_acid(ant.energy, lattice, seq, i,
                                          ant.positions[i], config.curr);
 
-            tempCoord = ant.positions[i];
+            temp_coord = ant.positions[i];
             ant.positions[i] = config.curr;
             config.curr = config.prev;
-            config.prev = tempCoord;
+            config.prev = temp_coord;
 
             last_modified = i;
 
@@ -730,13 +722,13 @@ int apply_pm
 
 int generate_pm_config
 (
-    Pm_config *config,
+    struct pm_config *config,
     int **lattice,
-    Pm_type pm_type,
-    Coord curr,
-    Coord prev,
-    Coord next,
-    Coord direction
+    enum pm_type pm_type,
+    struct coord curr,
+    struct coord prev,
+    struct coord next,
+    struct coord direction
 )
 /* =====================================================================================
  * Generates a pull-move configuration for a specific direction of a specific amino-acid
@@ -774,8 +766,8 @@ void generate_pm_configs
 (
     int amino_acid_index,
     int **lattice,
-    Coord *ant_positions,
-    Pm_config *configs,
+    struct coord *ant_positions,
+    struct pm_config *configs,
     int *config_index,
     int seq_len
 )
@@ -785,17 +777,17 @@ void generate_pm_configs
  */
 {
     int result;
-    Pm_config config;
+    struct pm_config config;
     config.amino_acid_index = amino_acid_index;
 
-    Coord right_move = create_new_coord(1, 0);
-    Coord left_move = create_new_coord(-1, 0);
-    Coord up_move = create_new_coord(0, 1);
-    Coord down_move = create_new_coord(0, -1);
+    struct coord right_move = create_new_coord(1, 0);
+    struct coord left_move = create_new_coord(-1, 0);
+    struct coord up_move = create_new_coord(0, 1);
+    struct coord down_move = create_new_coord(0, -1);
 
-    Coord next = ant_positions[amino_acid_index + 1];
-    Coord prev = ant_positions[amino_acid_index - 1];
-    Coord curr = ant_positions[amino_acid_index];
+    struct coord next = ant_positions[amino_acid_index + 1];
+    struct coord prev = ant_positions[amino_acid_index - 1];
+    struct coord curr = ant_positions[amino_acid_index];
 
     result = generate_pm_config(&config, lattice, ORIGINAL, curr, prev, next, right_move);
     if (result) configs[(*config_index)++] = config;
@@ -822,13 +814,13 @@ void generate_pm_configs
 
 void pm_search
 (
-    Polarity *seq,
+    enum polarity *seq,
     int seq_len,
-    Ant *original_ant,
+    struct ant *original_ant,
     int **lattice,
-    Ant best_ant,
-    Ant ant,
-    Pm_config *configs
+    struct ant best_ant,
+    struct ant ant,
+    struct pm_config *configs
 )
 /* ============================================================
  * Applies pull-moves on the protein while there is improvement
@@ -839,7 +831,7 @@ void pm_search
     int j;
     int num_configs = 0;
     int previous_energy;
-    Coord lattice_adjust;
+    struct coord lattice_adjust;
 
     best_ant.energy = 0;
 
@@ -924,15 +916,15 @@ void pm_search
 
 char* ant_to_string
 (
-    Ant ant,
+    struct ant ant,
     int num_dimensions
 )
 /* ===============================================
- * Extracts conformation info from Ant to Solution
+ * Extracts conformation info from struct ant to struct solution
  * ===============================================
  */
 {
-    Coord move, prev_move;
+    struct coord move, prev_move;
     int i, direction;
     char *directions;
 
@@ -973,51 +965,81 @@ char* ant_to_string
     return directions;
 }
 
-void construct_conform
+int execute_look_ahead(int **lattice, struct coord position, int seq_len, int amin_index)
+{
+    int right;
+    int left;
+    int down;
+    int up;
+
+    int position_is_invalid;
+
+    right = lattice[position.x + 1][position.y];
+    left = lattice[position.x - 1][position.y];
+    up = lattice[position.x][position.y + 1];
+    down = lattice[position.x][position.y - 1];
+
+    if (right > -1 && left > -1 && up > -1 && down > -1) {
+        position_is_invalid = 1;
+    } else {
+        position_is_invalid = 0;
+    }
+
+    if (amin_index == 0 || amin_index == seq_len - 1)
+    {
+        position_is_invalid = 0;
+    }
+
+    return !position_is_invalid;
+}
+
+void construct_0
 (
-    Aco_config aco_config,
+    struct aco_config aco_config,
     double **pheromone,
     int **lattice,
-    Polarity *seq,
+    enum polarity *seq,
     int seq_len,
-    Ant *ant,
+    struct ant *ant,
     int *best_ant_by_index,
     int ant_index,
-    Ant *ants
+    struct ant *ants
 )
-/* ====================================
- * Builds ant conformation
- * ====================================
+/* ====================================================
+ * Builds ant conformation. Based in Xiao, Li & Hu 2014
+ * ====================================================
  */
 {
     int i;
     int j;
+
     int num_candidates;
     int selected_candidate;
     double sum_probabilities;
     double probabilities[3];
-    Coord curr_position;
-    Coord move;
-    Coord candidate_move[3];
-    Candidate candidates[3];
-    Ant copied_ant;
+    struct coord candidate_moves[3];
+    struct candidate candidates[3];
+
+    struct coord curr_position;
+    struct coord foward_position;
+    struct coord last_move;
+
+    struct ant copied_ant;
 
     ant->energy = 0;
     ant->energy_by_edge[0] = 0;
 
-    //DEFINES FIRST EDGE
+    //Defines first edge direction
 
     lattice[seq_len][seq_len] = 0;
     ant->positions[0] = create_new_coord(seq_len, seq_len);
 
-    move = create_new_coord(0, 1);
-    curr_position = create_new_coord(ant->positions[0].x + move.x,
-                                     ant->positions[0].y + move.y);
+    last_move = create_new_coord(0, 1);
+    curr_position = create_new_coord(ant->positions[0].x + last_move.x, ant->positions[0].y + last_move.y);
     lattice[curr_position.x][curr_position.y] = 1;
     ant->positions[1] = curr_position;
 
-
-    //CONSTRUCTOR LOOP
+    //Constructor loop
 
     //For each edge except the first
     for (i = 1; i < seq_len - 1; ++i)
@@ -1025,27 +1047,29 @@ void construct_conform
         sum_probabilities = 0;
         num_candidates = 0;
 
-        candidate_move[0] = left(move);
-        candidate_move[1] = right(move);
-        candidate_move[2] = straight(move);
+        candidate_moves[0] = left(last_move);
+        candidate_moves[1] = right(last_move);
+        candidate_moves[2] = straight(last_move);
 
-        //DEFINES CANDIDATES DIRECTION
+        //Defines candidate directions
 
         //For each direction
         for (j = 0; j < 3; ++j)
         {
 
+            foward_position = create_new_coord(curr_position.x + candidate_moves[j].x,
+                                               curr_position.y + candidate_moves[j].y);
+
             //If the next position in this direction is not occupied, turns current direction into a candidate
-            if (lattice[curr_position.x + candidate_move[j].x][curr_position.y + candidate_move[j].y] == -1)
+            if (lattice[foward_position.x][foward_position.y] == -1)
             {
-                candidates[num_candidates].move = candidate_move[j];
-                candidates[num_candidates].position.x = curr_position.x + candidates[num_candidates].move.x;
-                candidates[num_candidates].position.y = curr_position.y + candidates[num_candidates].move.y;
+                candidates[num_candidates].move = candidate_moves[j];
+                candidates[num_candidates].position = foward_position;
 
                 if (seq[i + 1] == H)
                 {
                     candidates[num_candidates].heuristic =
-                        calculate_heuristic(lattice, i + 1, candidates[num_candidates].position, seq);
+                        calculate_heuristic(lattice, i + 1, foward_position, seq);
                 }
                 else
                 {
@@ -1067,7 +1091,7 @@ void construct_conform
             probabilities[j] = probabilities[j]/sum_probabilities;
         }
 
-        //SELECTS A CANDIDATE
+        //Selects a candidate
 
         if (num_candidates == 0)
         {
@@ -1086,11 +1110,11 @@ void construct_conform
             selected_candidate = 0;
         }
 
-        //UPDATE CONFORMATION
+        //Update conformation
 
         if (selected_candidate != -1)
         {
-            move = candidates[selected_candidate].move;
+            last_move = candidates[selected_candidate].move;
             curr_position = candidates[selected_candidate].position;
             ant->energy_by_edge[i] = ant->energy;
             ant->energy -= candidates[selected_candidate].heuristic;
@@ -1100,64 +1124,54 @@ void construct_conform
         }
         else
         {
-            //WHEN IS IMPOSSIBLE CONTINUE THE FOLD PROCESS
+            //When is impossible continue the fold process
 
-            switch (aco_config.collision_handler)
+            //If theres no another ant to copy
+            if (best_ant_by_index[i] == -1)
             {
-
-            case PARTIAL_COPY:
-
-                //If theres no another ant to copy
-                if (best_ant_by_index[i] == -1)
+                for (j = 0; j <= i; ++j)
                 {
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
-                    }
-
-                    i = 0;
-                    ant->energy = 0;
-
-                    //Reset first edge
-                    lattice[seq_len][seq_len] = 0;
-                    ant->positions[0] = create_new_coord(seq_len, seq_len);
-
-                    move = create_new_coord(0, 1);
-                    curr_position = create_new_coord(ant->positions[0].x + move.x,
-                                                     ant->positions[0].y + move.y);
-                    lattice[curr_position.x][curr_position.y] = 1;
-                    ant->positions[1] = curr_position;
+                    lattice[ant->positions[j].x][ant->positions[j].y] = -1;
                 }
-                else
+
+                i = 0;
+                ant->energy = 0;
+
+                //Reset first edge
+                lattice[seq_len][seq_len] = 0;
+                ant->positions[0] = create_new_coord(seq_len, seq_len);
+
+                last_move = create_new_coord(0, 1);
+                curr_position = create_new_coord(ant->positions[0].x + last_move.x,
+                                                 ant->positions[0].y + last_move.y);
+                lattice[curr_position.x][curr_position.y] = 1;
+                ant->positions[1] = curr_position;
+            }
+            else
+            {
+                copied_ant = ants[best_ant_by_index[i]];
+
+                for (j = 0; j <= i; ++j)
                 {
-                    copied_ant = ants[best_ant_by_index[i]];
-
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[ant->positions[j].x][ant->positions[j].y] = -1;
-                    }
-
-                    //Copy best ant for index i until i th amino-acid*/
-                    for (j = 0; j <= i; ++j)
-                    {
-                        lattice[copied_ant.positions[j].x][copied_ant.positions[j].y] = j;
-                        ant->positions[j] = copied_ant.positions[j];
-                        if (j != i)
-                        {
-                            ant->energy_by_edge[j] = copied_ant.energy_by_edge[j];
-                        }
-                    }
-                    curr_position = copied_ant.positions[i];
-                    ant->energy = copied_ant.energy_by_edge[i];
-
-                    move = create_new_coord(curr_position.x - copied_ant.positions[i - 1].x,
-                                            curr_position.y - copied_ant.positions[i - 1].y);
-                    --i;
+                    lattice[ant->positions[j].x][ant->positions[j].y] = -1;
                 }
-                break;
 
-            default:
-                break;
+                //Copy best ant for index i until i th amino-acid*/
+                for (j = 0; j <= i; ++j)
+                {
+                    lattice[copied_ant.positions[j].x][copied_ant.positions[j].y] = j;
+                    ant->positions[j] = copied_ant.positions[j];
+                    if (j != i)
+                    {
+                        ant->energy_by_edge[j] = copied_ant.energy_by_edge[j];
+                    }
+                }
+                curr_position = copied_ant.positions[i];
+                ant->energy = copied_ant.energy_by_edge[i];
+
+                last_move = create_new_coord(curr_position.x - copied_ant.positions[i - 1].x,
+                                        curr_position.y - copied_ant.positions[i - 1].y);
+                --i;
             }
         }
     }
@@ -1172,11 +1186,490 @@ void construct_conform
     }
 }
 
-Aco_result aco_run
+void construct_1
 (
-    Polarity *seq,
+    struct aco_config aco_config,
+    double **pheromone,
+    int **lattice,
+    enum polarity *seq,
     int seq_len,
-    Aco_config aco_config,
+    struct ant *ant,
+    int ant_index,
+    struct ant *ants
+)
+/* ======================================================
+ * Builds ant conformation. Based in  Hu, Zhang & Li 2009
+ * ======================================================
+ */
+{
+    int i;
+
+    int num_candidates;
+    int selected_candidate;
+    double sum_probabilities;
+    double probabilities[3];
+    struct coord candidate_moves[3];
+    struct candidate candidates[3];
+
+    struct coord foward_position;
+    struct coord last_move;
+
+    int curr_amin;
+    int prev_amin;
+    int next_amin;
+
+    int left_extremity;
+    int right_extremity;
+    int *extremity;
+
+    int side;
+    int last_unfold_side;
+    int unfold_size;
+
+    ant->energy = 0;
+
+    //Defines start edge direction
+
+    left_extremity = ceil(seq_len / 2);
+    right_extremity = ceil(seq_len / 2) + 1;
+
+    ant->positions[left_extremity] = create_new_coord(seq_len, seq_len);
+    ant->positions[right_extremity] = create_new_coord(seq_len + 1, seq_len);
+
+    lattice[ant->positions[left_extremity].x][ant->positions[left_extremity].y] = left_extremity;
+    lattice[ant->positions[right_extremity].x][ant->positions[right_extremity].y] = right_extremity;
+
+    side = 0;//left
+    last_unfold_side = -1;
+
+
+    //Constructor loop
+
+    while (left_extremity > 0 || right_extremity < seq_len - 1)
+    {
+        if (side == 0 && left_extremity == 0)
+        {
+            side = 1;
+        }
+        else if (side == 1 && right_extremity == seq_len - 1)
+        {
+            side = 0;
+        }
+
+        if (side == 0)
+        {
+            curr_amin = left_extremity;
+            next_amin = left_extremity - 1;
+            prev_amin = left_extremity + 1;
+            extremity = &left_extremity;
+        }
+        else
+        {
+            curr_amin = right_extremity;
+            next_amin = right_extremity + 1;
+            prev_amin = right_extremity - 1;
+            extremity = &right_extremity;
+        }
+
+        last_move = subtract_coord(ant->positions[curr_amin], ant->positions[prev_amin]);
+
+        sum_probabilities = 0;
+        num_candidates = 0;
+
+        candidate_moves[0] = left(last_move);
+        candidate_moves[1] = right(last_move);
+        candidate_moves[2] = straight(last_move);
+
+        //Defines candidate directions
+
+        //For each direction
+        for (i = 0; i < 3; ++i)
+        {
+
+            foward_position = create_new_coord(ant->positions[curr_amin].x + candidate_moves[i].x,
+                                               ant->positions[curr_amin].y + candidate_moves[i].y);
+
+            //If the next position in this direction is not occupied, turns current direction into a candidate
+            if (lattice[foward_position.x][foward_position.y] == -1 &&
+                execute_look_ahead(lattice, foward_position, seq_len, next_amin))
+            {
+                candidates[num_candidates].move = candidate_moves[i];
+                candidates[num_candidates].position = foward_position;
+
+                if (seq[next_amin] == H)
+                {
+                    candidates[num_candidates].heuristic =
+                        calculate_heuristic(lattice, next_amin, foward_position, seq);
+                }
+                else
+                {
+                    candidates[num_candidates].heuristic = 0;
+                }
+
+                probabilities[num_candidates] =
+                    pow(pheromone[curr_amin][i], aco_config.alpha) *
+                    pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
+
+                sum_probabilities += probabilities[num_candidates];
+                ++num_candidates;
+            }
+
+        }
+
+        for (i = 0; i < num_candidates; ++i)
+        {
+            probabilities[i] = probabilities[i] / sum_probabilities;
+        }
+
+        //Selects a candidate
+
+        if (num_candidates == 0)
+        {
+            selected_candidate = -1;
+        }
+        else if (sum_probabilities == 0)
+        {
+            selected_candidate = rand() % num_candidates;
+        }
+        else if (num_candidates > 1)
+        {
+            selected_candidate = random_select(probabilities, num_candidates);
+        }
+        else if (num_candidates == 1)
+        {
+            selected_candidate = 0;
+        }
+
+        //Update conformation
+
+        if (selected_candidate != -1)
+        {
+            *extremity = next_amin;
+
+            ant->energy -= candidates[selected_candidate].heuristic;
+            ant->positions[*extremity] = candidates[selected_candidate].position;
+            lattice[ant->positions[*extremity].x][ant->positions[*extremity].y] = *extremity;
+            side = !side;
+
+        }
+        else
+        {
+            //When is impossible continue the fold process
+
+            if (right_extremity == ceil(seq_len / 2) + 1 ||
+                (last_unfold_side == 1 && left_extremity != ceil(seq_len / 2)))
+
+            {
+                unfold_size = 1 + rand() % ((int) ceil(seq_len / 2) - left_extremity);
+                extremity = &left_extremity;
+                last_unfold_side = 0;
+
+                curr_amin = *extremity;
+                next_amin = curr_amin - 1;
+                prev_amin = curr_amin + 1;
+            }
+            else
+            {
+
+                unfold_size = 1 + rand() % (right_extremity - ((int) ceil(seq_len / 2) + 1));
+                extremity = &right_extremity;
+                last_unfold_side = 1;
+
+                curr_amin = *extremity;
+                next_amin = curr_amin + 1;
+                prev_amin = curr_amin - 1;
+            }
+
+
+            for (i = 0; i < unfold_size; ++i)
+            {
+                if (seq[*extremity] == H)
+                {
+                    ant->energy += calculate_heuristic(lattice, *extremity, ant->positions[*extremity], seq);
+                }
+                lattice[ant->positions[*extremity].x][ant->positions[*extremity].y] = -1;
+
+                next_amin = *extremity;
+                curr_amin = prev_amin;
+                prev_amin = curr_amin - (next_amin - curr_amin);
+
+                *extremity = curr_amin;
+            }
+        }
+    }
+}
+
+void construct_2
+(
+    struct aco_config aco_config,
+    double **pheromone,
+    int **lattice,
+    enum polarity *seq,
+    int seq_len,
+    struct ant *ant,
+    int ant_index,
+    struct ant *ants
+)
+/* ====================================================
+ * Builds ant conformation. Based in Xiao, Li & Hu 2014
+ * ====================================================
+ */
+{
+    int i;
+
+    int num_candidates;
+    int selected_candidate;
+    double sum_probabilities;
+    double probabilities[3];
+    struct coord candidate_moves[3];
+    struct candidate candidates[3];
+
+    struct coord last_move;
+    struct coord foward_position;
+    enum direction forbidden_dir;
+    double left_unfolded_percentage;
+
+    int curr_amin;
+    int prev_amin;
+    int next_amin;
+    int left_extremity;
+    int right_extremity;
+    int *extremity;
+    int side;
+    int unfold_size;
+    int start_point;
+
+    forbidden_dir = -1;
+    ant->energy = 0;
+
+    //Defines start edge direction
+
+    start_point = rand()%(seq_len - 1);
+
+    left_extremity = start_point;
+    right_extremity = start_point + 1;
+
+    ant->positions[left_extremity] = create_new_coord(seq_len, seq_len);
+    ant->positions[right_extremity] = create_new_coord(seq_len + 1, seq_len);
+
+    lattice[ant->positions[left_extremity].x][ant->positions[left_extremity].y] = left_extremity;
+    lattice[ant->positions[right_extremity].x][ant->positions[right_extremity].y] = right_extremity;
+
+    //Constructor loop
+
+    while (left_extremity > 0 || right_extremity < seq_len - 1)
+    {
+
+        left_unfolded_percentage = (double) left_extremity / (left_extremity + (seq_len - right_extremity));
+
+        if ((double) rand() / RAND_MAX < left_unfolded_percentage) {
+            side = 0;//left
+        } else {
+            side = 1;//right
+        }
+
+
+        if (side == 0 && left_extremity == 0)
+        {
+            side = 1;
+        }
+        else if (side == 1 && right_extremity == seq_len - 1)
+        {
+            side = 0;
+        }
+
+        if (side == 0)
+        {
+            curr_amin = left_extremity;
+            next_amin = left_extremity - 1;
+            prev_amin = left_extremity + 1;
+            extremity = &left_extremity;
+        }
+        else
+        {
+            curr_amin = right_extremity;
+            next_amin = right_extremity + 1;
+            prev_amin = right_extremity - 1;
+            extremity = &right_extremity;
+        }
+
+        last_move = subtract_coord(ant->positions[curr_amin], ant->positions[prev_amin]);
+
+        sum_probabilities = 0;
+        num_candidates = 0;
+
+        candidate_moves[0] = left(last_move);
+        candidate_moves[1] = right(last_move);
+        candidate_moves[2] = straight(last_move);
+
+        //Defines candidate direction
+
+        //For each direction
+        for (i = 0; i < 3; ++i)
+        {
+
+            foward_position = create_new_coord(ant->positions[curr_amin].x + candidate_moves[i].x,
+                                               ant->positions[curr_amin].y + candidate_moves[i].y);
+
+            //If the next position in this direction is not occupied, turns current direction into a candidate
+            if (lattice[foward_position.x][foward_position.y] == -1 &&
+                execute_look_ahead(lattice, foward_position, seq_len, next_amin) &&
+                i != forbidden_dir)
+            {
+                candidates[num_candidates].move = candidate_moves[i];
+                candidates[num_candidates].position = foward_position;
+
+                if (seq[next_amin] == H)
+                {
+                    candidates[num_candidates].heuristic =
+                        calculate_heuristic(lattice, next_amin, foward_position, seq);
+                }
+                else
+                {
+                    candidates[num_candidates].heuristic = 0;
+                }
+
+                probabilities[num_candidates] =
+                    pow(pheromone[curr_amin][i], aco_config.alpha) *
+                    pow(exp((double) candidates[num_candidates].heuristic / 0.3), aco_config.beta);
+
+                sum_probabilities += probabilities[num_candidates];
+                ++num_candidates;
+            }
+
+        }
+
+        forbidden_dir = -1;
+
+        for (i = 0; i < num_candidates; ++i)
+        {
+            probabilities[i] = probabilities[i] / sum_probabilities;
+        }
+
+        //Selects a candidate
+
+        if (num_candidates == 0)
+        {
+            selected_candidate = -1;
+        }
+        else if (sum_probabilities == 0)
+        {
+            selected_candidate = rand() % num_candidates;
+        }
+        else if (num_candidates > 1)
+        {
+            selected_candidate = random_select(probabilities, num_candidates);
+        }
+        else if (num_candidates == 1)
+        {
+            selected_candidate = 0;
+        }
+
+        //Update conformation
+
+        if (selected_candidate != -1)
+        {
+            *extremity = next_amin;
+
+            ant->energy -= candidates[selected_candidate].heuristic;
+            ant->positions[*extremity] = candidates[selected_candidate].position;
+            lattice[ant->positions[*extremity].x][ant->positions[*extremity].y] = *extremity;
+            side = !side;
+
+        }
+        else
+        {
+            unfold_size = ceil((right_extremity - left_extremity) / 2);
+
+            if (side == 0) {
+
+
+                extremity = &left_extremity;
+                curr_amin = *extremity;
+                next_amin = curr_amin - 1;
+                prev_amin = curr_amin + 1;
+
+            } else {
+
+                extremity = &right_extremity;
+                curr_amin = *extremity;
+                next_amin = curr_amin + 1;
+                prev_amin = curr_amin - 1;
+
+            }
+
+            for (i = 0; i < unfold_size; ++i)
+            {
+                if (seq[*extremity] == H)
+                {
+                    ant->energy += calculate_heuristic(lattice, *extremity, ant->positions[*extremity], seq);
+                }
+                lattice[ant->positions[*extremity].x][ant->positions[*extremity].y] = -1;
+
+                next_amin = *extremity;
+                curr_amin = prev_amin;
+                prev_amin = curr_amin - (next_amin - curr_amin);
+
+                *extremity = curr_amin;
+            }
+
+            forbidden_dir = direction_by_move(
+                subtract_coord(ant->positions[curr_amin], ant->positions[prev_amin]),
+                subtract_coord(ant->positions[next_amin], ant->positions[curr_amin]));
+        }
+    }
+}
+
+void partition(struct ant* ants, int left, int right, int *i, int *j)
+{
+    struct ant aux;
+    double pivot;
+    *i = left;
+    *j = right;
+
+    pivot = ants[(*i + *j) / 2].energy;
+
+    do
+    {
+        while(ants[*i].energy < pivot)
+        {
+            (*i)++;
+        }
+        while(ants[*j].energy > pivot)
+        {
+            (*j)--;
+        }
+        if(*i <= *j)
+        {
+            aux = ants[*i];
+            ants[*i] = ants[*j];
+            ants[*j] = aux;
+
+            (*i)++;
+            (*j)--;
+        }
+    }
+    while(*i <= *j);
+}
+
+void sort(struct ant* ants, int left, int right)
+{
+    int i, j;
+    partition(ants, left, right, &i, &j);
+    if(left < j) sort(ants, left, j);
+    if(i < right) sort(ants, i, right);
+}
+
+void quick_sort(struct ant* ants, int n)
+{
+    sort(ants, 0, n - 1);
+}
+
+struct aco_result aco_run
+(
+    enum polarity *seq,
+    int seq_len,
+    struct aco_config aco_config,
     int *seed
 )
 /* ====================================
@@ -1189,17 +1682,18 @@ Aco_result aco_run
     int k;
     int *best_ant_by_edge;
     int **lattice;
-    Ant iteration_ant;
-    Ant best_ant;
-    Ant *ants;
-    Ant pm_best_ant;
-    Ant pm_ant;
-    Pm_config* pm_configs;
+    struct ant iteration_ant;
+    struct ant best_ant;
+    struct ant *ants;
+    struct ant pm_best_ant;
+    struct ant pm_ant;
+    struct pm_config* pm_configs;
     double** pheromone;
     clock_t t0;
-    Aco_result aco_result;
+    struct aco_result result;
 
-    /**/aco_result.energy_evolution = (int*) malloc(sizeof(int) * aco_config.iterations);
+    /**///Code related to output statistics
+    /**/result.energy_evolution = (int*) malloc(sizeof(int) * aco_config.iterations);
     /**/t0 = clock();
 
     //Sets seed
@@ -1220,8 +1714,24 @@ Aco_result aco_run
         //Population loop
         for (j = 0; j < aco_config.population; ++j)
         {
-            construct_conform(aco_config, pheromone, lattice, seq, seq_len, &ants[j],
-                              best_ant_by_edge, j, ants);
+
+            switch (aco_config.constructor) {
+
+            case XIAO_LI_HU_2014:
+                construct_0(aco_config, pheromone, lattice, seq, seq_len, &ants[j], best_ant_by_edge, j, ants);
+                break;
+            case HU_ZHANG_LI_2009:
+                construct_1(aco_config, pheromone, lattice, seq, seq_len, &ants[j], j, ants);
+                break;
+            case SHMYGELSKA_HOOS_2003:
+                construct_2(aco_config, pheromone, lattice, seq, seq_len, &ants[j], j, ants);
+                break;
+            default:
+                printf("ERROR: aco.c/aco_run(): \"Invalid constructor\"\n");
+                exit(1);
+                break;
+
+            }
 
             //Clean lattice
             for (k = 0; k < seq_len; ++k)
@@ -1238,20 +1748,15 @@ Aco_result aco_run
 
         iteration_ant = ants[0];
 
-        //Daemon search
+        //enum daemon search
         for (j = 0; j < aco_config.population; ++j)
         {
 
             switch (aco_config.daemon)
             {
-
             case PULL_MOVE:
-
-                pm_search(seq, seq_len, &ants[j],
-                                 lattice, pm_best_ant, pm_ant,
-                                 pm_configs);
+                pm_search(seq, seq_len, &ants[j], lattice, pm_best_ant, pm_ant, pm_configs);
                 break;
-
             default:
                 break;
 
@@ -1265,15 +1770,15 @@ Aco_result aco_run
         }
 
         /**/if (i == 0 || iteration_ant.energy < best_ant.energy) {
-        /**/    aco_result.energy_evolution[i] = iteration_ant.energy;
+        /**/    result.energy_evolution[i] = iteration_ant.energy;
         /**/} else {
-        /**/    aco_result.energy_evolution[i] = 1;
+        /**/    result.energy_evolution[i] = 1;
         /**/}
 
         //Update best ant
         if (iteration_ant.energy < best_ant.energy)
         {
-            /**/aco_result.found_on_iteration = i;
+            /**/result.found_on_iteration = i;
             best_ant.energy = iteration_ant.energy;
             for (j = 0; j < seq_len; ++j)
             {
@@ -1281,44 +1786,46 @@ Aco_result aco_run
             }
         }
 
+        quick_sort(ants, aco_config.population);
+
         //Pheromone update
         pheromone_evaporation(pheromone, seq_len, aco_config.persistence);
-        for (j = 0; j < aco_config.population; ++j)
+        for (j = 0; j < aco_config.population * aco_config.elit_percentage; ++j)
         {
             pheromone_deposit(pheromone, ants[j], seq_len, best_ant.energy);
         }
     }
 
-    /**/aco_result.time = (clock() - t0)/(double)CLOCKS_PER_SEC;
-    /**/aco_result.energy = best_ant.energy;
-    /**/aco_result.final_population_avg = 0;
-    /**/aco_result.final_population_solution_rate = 0;
-    /**/aco_result.final_population_stddev = 0;
+    /**/result.time = (clock() - t0)/(double)CLOCKS_PER_SEC;
+    /**/result.energy = best_ant.energy;
+    /**/result.final_population_avg = 0;
+    /**/result.final_population_solution_rate = 0;
+    /**/result.final_population_stddev = 0;
 
     /**/for (i = 0; i < aco_config.population; ++i) {
-    /**/    aco_result.final_population_avg += ants[i].energy;
+    /**/    result.final_population_avg += ants[i].energy;
     /**/    if (ants[i].energy == best_ant.energy)
     /**/    {
-    /**/        ++aco_result.final_population_solution_rate;
+    /**/        ++result.final_population_solution_rate;
     /**/    }
     /**/}
 
-    /**/aco_result.final_population_solution_rate /= aco_config.population;
-    /**/aco_result.final_population_avg /= aco_config.population;
+    /**/result.final_population_solution_rate /= aco_config.population;
+    /**/result.final_population_avg /= aco_config.population;
 
     /**/for (i = 0; i < aco_config.population; ++i) {
-    /**/    aco_result.final_population_stddev +=
-    /**/        (aco_result.final_population_avg - ants[i].energy) *
-    /**/        (aco_result.final_population_avg - ants[i].energy);
+    /**/    result.final_population_stddev +=
+    /**/        (result.final_population_avg - ants[i].energy) *
+    /**/        (result.final_population_avg - ants[i].energy);
     /**/}
 
-    /**/aco_result.final_population_stddev /= aco_config.population;
-    /**/aco_result.final_population_stddev = sqrt(aco_result.final_population_stddev);
-    /**/aco_result.final_population_solution_rate *= 100;
-    /**/aco_result.directions = ant_to_string(best_ant, seq_len);
+    /**/result.final_population_stddev /= aco_config.population;
+    /**/result.final_population_stddev = sqrt(result.final_population_stddev);
+    /**/result.final_population_solution_rate *= 100;
+    /**/result.directions = ant_to_string(best_ant, seq_len);
 
     free_variables(aco_config, seq_len, lattice, best_ant_by_edge, best_ant,
                    pm_best_ant, pm_ant, pheromone, pm_configs, ants);
 
-    return aco_result;
+    return result;
 }

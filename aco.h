@@ -6,13 +6,15 @@ struct solution
 
 enum daemon
 {
-    WITHOUT_DAEMON = 0,
+    NONE = 0,
     PULL_MOVE = 1
 };
 
-enum collision_handler
+enum constructor
 {
-    PARTIAL_COPY = 0
+    XIAO_LI_HU_2014 = 0,
+    HU_ZHANG_LI_2009 = 1,
+    SHMYGELSKA_HOOS_2003 = 2
 };
 
 enum polarity
@@ -24,9 +26,9 @@ enum polarity
 struct aco_config
 {
     int population, iterations;
-    double alpha, beta, persistence, ini_pheromone;
+    double alpha, beta, persistence, ini_pheromone, elit_percentage;
     enum daemon daemon;
-    enum collision_handler collision_handler;
+    enum constructor constructor;
 };
 
 struct aco_result
@@ -41,13 +43,6 @@ struct aco_result
     float final_population_solution_rate;
 };
 
-typedef enum daemon Daemon;
-typedef enum collision_handler Collision_handler;
-typedef enum polarity Polarity;
-typedef struct aco_config Aco_config;
-typedef struct solution Solution;
-typedef struct aco_result Aco_result;
-
 void* smalloc(int mem_size);
-void free_solution(Solution solution);
-Aco_result aco_run(Polarity *sequence, int sequence_len, Aco_config aco_config, int *seed);
+void free_solution(struct solution solution);
+struct aco_result aco_run(enum polarity *sequence, int sequence_len, struct aco_config aco_config, int *seed);
