@@ -11,6 +11,7 @@
 <beta>2</beta>
 <initial-pheromone>0.333333333333333333</initial-pheromone>
 <persistence>0.2</persistence>
+<min-probability>0</min-probability>
 
 <small-instances-population>200</small-instances-population>
 <big-instances-population>1500</big-instances-population>

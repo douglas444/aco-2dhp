@@ -29,6 +29,7 @@ struct aco_config
     double alpha, beta, persistence, ini_pheromone, elit_percentage;
     enum daemon daemon;
     enum constructor constructor;
+    double min_probability;
 };
 
 struct aco_result

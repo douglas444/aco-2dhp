@@ -47,6 +47,7 @@ struct candidate
     int heuristic;
     struct coord position;
     struct coord move;
+    int readjusted;
 
 };
 
@@ -1230,8 +1231,8 @@ void construct_1
 
     //Defines start edge direction
 
-    left_extremity = ceil(seq_len / 2);
-    right_extremity = ceil(seq_len / 2) + 1;
+    left_extremity = ceil((double) seq_len / 2);
+    right_extremity = ceil((double) seq_len / 2) + 1;
 
     ant->positions[left_extremity] = create_new_coord(seq_len, seq_len);
     ant->positions[right_extremity] = create_new_coord(seq_len + 1, seq_len);
@@ -1356,11 +1357,11 @@ void construct_1
         {
             //When is impossible continue the fold process
 
-            if (right_extremity == ceil(seq_len / 2) + 1 ||
-                (last_unfold_side == 1 && left_extremity != ceil(seq_len / 2)))
+            if (right_extremity == ceil((double) seq_len / 2) + 1 ||
+                (last_unfold_side == 1 && left_extremity != ceil((double) seq_len / 2)))
 
             {
-                unfold_size = 1 + rand() % ((int) ceil(seq_len / 2) - left_extremity);
+                unfold_size = 1 + rand() % ((int) ceil((double) seq_len / 2) - left_extremity);
                 extremity = &left_extremity;
                 last_unfold_side = 0;
 
@@ -1371,7 +1372,7 @@ void construct_1
             else
             {
 
-                unfold_size = 1 + rand() % (right_extremity - ((int) ceil(seq_len / 2) + 1));
+                unfold_size = 1 + rand() % (right_extremity - ((int) ceil((double) seq_len / 2) + 1));
                 extremity = &right_extremity;
                 last_unfold_side = 1;
 
@@ -1410,9 +1411,9 @@ void construct_2
     int ant_index,
     struct ant *ants
 )
-/* ====================================================
- * Builds ant conformation. Based in Xiao, Li & Hu 2014
- * ====================================================
+/* ========================================================
+ * Builds ant conformation. Based in Shmygelska & Hoos 2003
+ * ========================================================
  */
 {
     int i;
@@ -1438,6 +1439,8 @@ void construct_2
     int side;
     int unfold_size;
     int start_point;
+
+    double readjust;
 
     forbidden_dir = -1;
     ant->energy = 0;
@@ -1518,6 +1521,7 @@ void construct_2
             {
                 candidates[num_candidates].move = candidate_moves[i];
                 candidates[num_candidates].position = foward_position;
+                candidates[num_candidates].readjusted = 0;
 
                 if (seq[next_amin] == H)
                 {
@@ -1541,9 +1545,29 @@ void construct_2
 
         forbidden_dir = -1;
 
+        readjust = 0;
+
         for (i = 0; i < num_candidates; ++i)
         {
             probabilities[i] = probabilities[i] / sum_probabilities;
+
+            if (probabilities[i] < aco_config.min_probability)
+            {
+                candidates[i].readjusted = 1;
+                readjust += aco_config.min_probability - probabilities[i];
+                probabilities[i] = aco_config.min_probability;
+            }
+        }
+
+        if (readjust > 0)
+        {
+            for (i = 0; i < num_candidates; ++i)
+            {
+                if (candidates[i].readjusted == 0)
+                {
+                    probabilities[i] -= (readjust * probabilities[i]);
+                }
+            }
         }
 
         //Selects a candidate
@@ -1579,7 +1603,7 @@ void construct_2
         }
         else
         {
-            unfold_size = ceil((right_extremity - left_extremity) / 2);
+            unfold_size = ceil((double)(right_extremity - left_extremity) / 2);
 
             if (side == 0) {
 
@@ -1786,7 +1810,9 @@ struct aco_result aco_run
             }
         }
 
-        quick_sort(ants, aco_config.population);
+        if (aco_config.elit_percentage < 1) {
+            quick_sort(ants, aco_config.population);
+        }
 
         //Pheromone update
         pheromone_evaporation(pheromone, seq_len, aco_config.persistence);

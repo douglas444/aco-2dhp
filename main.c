@@ -149,6 +149,7 @@ void read_inputs(struct aco_config *aco_config, enum polarity **sequence, int *s
     aco_config->beta = char_to_double(get_key_value(input_file, "beta"));
     aco_config->ini_pheromone = char_to_double(get_key_value(input_file, "initial-pheromone"));
     aco_config->persistence = char_to_double(get_key_value(input_file, "persistence"));
+    aco_config->min_probability = char_to_double(get_key_value(input_file, "min-probability"));
     aco_config->iterations = char_to_int(get_key_value(input_file, "iterations"));
     aco_config->elit_percentage = char_to_double(get_key_value(input_file, "elit-percentage"));
 
