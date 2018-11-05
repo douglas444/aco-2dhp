@@ -1765,9 +1765,12 @@ struct aco_result aco_run
         }
 
         //reset best ants by edge
-        for (j = 0; j < seq_len - 1; ++j)
+        if (aco_config.constructor == XIAO_LI_HU_2014)
         {
-            best_ant_by_edge[j] = -1;
+            for (j = 0; j < seq_len - 1; ++j)
+            {
+                best_ant_by_edge[j] = -1;
+            }
         }
 
         iteration_ant = ants[0];
