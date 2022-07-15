@@ -24,7 +24,7 @@ g++  -o ./aco-2dhp ./file.o ./main.o ./aco.o  -s
 
 ## How to run
 
-After compiling it, you can run the aco-2dhp executable by executing the following command from the root of the project.
+After compiling it, you can run the aco-2dhp binary by executing the following command from the root of the project.
 ```
 ./aco-2dhp input sequence8
 ```
@@ -38,7 +38,7 @@ iterations|protein|directions|energy|final population average|final population s
 ```
 
 ## Running the script.sh
-The `script.sh` script can be used to run the aco-2dhp executable for all the proteins from the `input`. The script will generate latex tables for all the results obtained. The script will also plot figures representing the best resultant conformation of each protein, as long the `2dhp-plot` executable is avaiable in the root of the project (The `2dhp-plot` executable avaiable in the root of the project was compiled in a linux x64. To compile a new `2dhp-plot` executable, check out this other repository: https://github.com/douglas444/2dhp-plot )
+The `script.sh` script can be used to run the aco-2dhp binary for all the 8 sequences avaiable in the `input` file. The script will generate latex tables for all the results obtained. The script will also plot figures representing the best resultant conformation of each protein, as long the `2dhp-plot` binary is avaiable in the root of the project (The `2dhp-plot` binary avaiable in the root of the project was compiled in a linux x64. To compile a new `2dhp-plot` binary, check out this other repository: https://github.com/douglas444/2dhp-plot )
 
 To run the `script.sh` script, execute the following commands from the root of the project
 ```
@@ -55,7 +55,7 @@ The results are going to be generated as follows:
 ./results/tables/sequence[1..8]
 ./results/energy_evolution/sequence[1..8]/run[1..20]
 ```
-To generate pdf/png from the latex files, execute the following command, changing `filename` to the path to the latex file you want to convert to pdf/png
+To generate pdf/png from the latex files, execute the following command, changing `filename` to the path to the latex file that you want to convert to pdf/png
 ```
 pdflatex --shell-escape filename
 ```
