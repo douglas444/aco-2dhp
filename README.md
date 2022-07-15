@@ -1,29 +1,53 @@
 # Ant Colony Optimization 2DHP
 
-### Executable aco-2dhp
-###### How to compile
+Protein structure prediction in the 2D HP model using Ant Colony Optimization
+
+## Requirements
+* gcc
+* g++
+
+## Compilation
+
+To compile, execute each one of the following commands from the root of the project:
 ```
-$ gcc -Wall -O2  -c ./file.c -o ./obj/Release/file.o
-$ gcc -Wall -O2  -c ./main.c -o ./obj/Release/main.o
-$ gcc -Wall -O2  -c ./aco.c -o ./obj/Release/aco.o
-$ g++  -o ./bin/Release/aco-2dhp ./obj/Release/file.o ./obj/Release/main.o ./obj/Release/aco.o  -s
+gcc -Wall -O2  -c ./file.c -o ./file.o
 ```
-###### How to run
 ```
-$ [sudo] ./bin/Release/aco-2dhp input_file_path sequence_key_on_input_file
+gcc -Wall -O2  -c ./main.c -o ./main.o
 ```
-###### Output
+```
+gcc -Wall -O2  -c ./aco.c -o ./aco.o
+```
+```
+g++  -o ./aco-2dhp ./file.o ./main.o ./aco.o  -s
+```
+
+## How to run
+
+After compiling it, you can run the aco-2dhp executable by executing the following command from the root of the project, where `input` is the name of the input file, and `sequence8` is the sequence identifier:
+```
+./aco-2dhp input sequence8
+```
+
+You can open the `input` file, located at the root of the project, in a text editor to change the parameters and see the other sequences available.
+
+
+The output will be printed following the template bellow
 ```
 iterations|protein|directions|energy|final population average|final population standard deviation|convergence|found on iteration|time|iteration,energy/.../iteration,energy/
 ```
 
-### Bash script.sh
-###### How to run
+## Running the script.sh
+The `script.sh` script can be used to run the aco-2dhp executable for all the proteins from the `input`. The script will generate latex tables for all the results obtained. The script will also plot figures representing the best resultant conformation of each protein, as long the `2dhp-plot` executable is avaiable in the root of the project (To compile a new `2dhp-plot` executable, check out this other repository: https://github.com/douglas444/2dhp-plot )
+
+To run the `script.sh` script, execute the following commands from the root of the project
 ```
-$ [sudo] chmod +x ./script.sh
-$ [sudo] ./script.sh
+chmod +x ./script.sh
 ```
-###### Output
+```
+./script.sh
+```
+The results are going to be generated as follows:
 ```
 ./results/outputlog
 ./results/summary
@@ -31,7 +55,7 @@ $ [sudo] ./script.sh
 ./results/tables/sequence[1..8]
 ./results/energy_evolution/sequence[1..8]/run[1..20]
 ```
-###### Generate pdf/png from latex files:
+To generate pdf/png from the latex files, execute the following command, changing `filename` to the path to the latex file you want to convert to pdf/png
 ```
-$ pdflatex --shell-escape filename
+pdflatex --shell-escape filename
 ```
