@@ -38,7 +38,7 @@ iterations|protein|directions|energy|final population average|final population s
 ```
 
 ## Running the script.sh
-The `script.sh` script can be used to run the aco-2dhp executable for all the proteins from the `input`. The script will generate latex tables for all the results obtained. The script will also plot figures representing the best resultant conformation of each protein, as long the `2dhp-plot` executable is avaiable in the root of the project (To compile a new `2dhp-plot` executable, check out this other repository: https://github.com/douglas444/2dhp-plot )
+The `script.sh` script can be used to run the aco-2dhp executable for all the proteins from the `input`. The script will generate latex tables for all the results obtained. The script will also plot figures representing the best resultant conformation of each protein, as long the `2dhp-plot` executable is avaiable in the root of the project (The `2dhp-plot` executable avaiable in the root of the project was compiled in a linux x64. To compile a new `2dhp-plot` executable, check out this other repository: https://github.com/douglas444/2dhp-plot )
 
 To run the `script.sh` script, execute the following commands from the root of the project
 ```
