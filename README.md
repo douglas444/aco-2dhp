@@ -24,12 +24,12 @@ g++  -o ./aco-2dhp ./file.o ./main.o ./aco.o  -s
 
 ## How to run
 
-After compiling it, you can run the aco-2dhp executable by executing the following command from the root of the project, where `input` is the name of the input file, and `sequence8` is the sequence identifier:
+After compiling it, you can run the aco-2dhp executable by executing the following command from the root of the project.
 ```
 ./aco-2dhp input sequence8
 ```
 
-You can open the `input` file, located at the root of the project, in a text editor to change the parameters and see the other sequences available.
+You can open the `input` file, located at the root of the project, in a text editor to change the parameters and see other sequences available.
 
 
 The output will be printed following the template bellow
