@@ -1,6 +1,6 @@
 # Ant Colony Optimization 2DHP
 
-Protein structure prediction in the 2D HP model using Ant Colony Optimization
+mplementation of the Ant Colony Optimization meta-heuristic for the Protein Structure Prediction problem using 2D HP model. This approach includes the pull move heuristic for local search.
 
 ## Requirements
 * gcc
