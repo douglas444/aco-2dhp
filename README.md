@@ -4,7 +4,6 @@ Implementation of the Ant Colony Optimization meta-heuristic for the Protein Str
 
 ## Requirements
 * gcc
-* g++
 
 ## Compilation
 
@@ -19,7 +18,7 @@ gcc -Wall -O2  -c ./main.c -o ./main.o
 gcc -Wall -O2  -c ./aco.c -o ./aco.o
 ```
 ```
-g++  -o ./aco-2dhp ./file.o ./main.o ./aco.o  -s
+gcc  -o ./aco-2dhp ./file.o ./main.o ./aco.o  -lm -s
 ```
 
 ## How to run
